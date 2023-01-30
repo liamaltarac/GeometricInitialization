@@ -1,1 +1,1 @@
-"# GeometricInitialization" 
+# GeometricInitialization
