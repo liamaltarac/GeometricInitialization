@@ -16,7 +16,7 @@ def wrapnormal(mean, std, size):
             u2 = np.random.uniform(low=0.0, high=1.0, size=None)
             z = 1.715528*(u1-0.5)/u2
             x = 0.25*z**2
-            if x <= 1 - u2 or x <= -np.log10(u2):
+            if x <= 1 - u2 or x <= -np.log(u2):
                 break
 
         z = np.random.normal(loc=0.0, scale=1.0, size=None)
@@ -38,6 +38,7 @@ class GeometricInit3x3Relu(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2
+        print('n_avg, ', self.n_avg)
         
         asym_mag_var = (self.k**2-1)/(self.n_avg * self.k**2)#1/self.channels
         s = np.sqrt(2/(4-np.pi))*np.sqrt(asym_mag_var)
@@ -48,7 +49,8 @@ class GeometricInit3x3Relu(Initializer):
                         seed=self.seed, 
                         name = None) 
 
-        locs = np.random.uniform(low=0, high=2*np.pi, size=self.filters)
+        locs = np.rint(np.random.uniform(low=0, high=8, size=self.filters))*(2*np.pi/8)
+        #locs = locs.astype(np.float32)
         theta_var = 1/(2*self.k**2 - 2) #2/(self.k**2)
         #print(theta_var)
         #c = 1 - theta_var
