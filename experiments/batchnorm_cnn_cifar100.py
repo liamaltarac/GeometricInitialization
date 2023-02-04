@@ -1,8 +1,10 @@
+import tensorflow as tf
+from tensorflow import keras
+import sys
+
 if __name__ == '__main__':
 
-    import tensorflow as tf
-    from tensorflow import keras
-    import sys
+
     sys.path.append("..")    
 
     from .models.batch_norm import batchnorm_cnn
@@ -12,7 +14,7 @@ if __name__ == '__main__':
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init=GeometricInit3x3Relu)
+    model = batchnorm_cnn(k_init = GeometricInit3x3Relu)
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -36,6 +38,20 @@ if __name__ == '__main__':
     train_datagen.fit(X_train)
 
     optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+
+    import wandb
+    from wandb.keras import WandbCallback
+
+    wandb.init(project="Test Weights and Gradient Histogram", entity="geometric_init")
+    wandb.run.name = '8_layer_batchNorm_cifar100_OURS'
+    wandb.config = {
+    "learning_rate": 1e-4,
+    'batch_size' : 64,
+    'epochs' : 10,
+    "initialization": "GeometricInit3x3Relu",
+    "model": '8_layer_BatchNorm CNN'
+    }
+
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
@@ -46,4 +62,15 @@ if __name__ == '__main__':
     )
     batch_size = 64
     epochs = 10
-    history = model.fit(X_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(X_validation, y_validation))
+    history = model.fit(X_train, 
+                        y_train, 
+                        batch_size=batch_size, 
+                        epochs=epochs, 
+                        validation_data=(X_validation, y_validation), 
+                        callbacks=[WandbCallback(log_gradients   = (True), 
+                                                 log_weights     = (True),
+                                                 training_data   = (X_train, y_train),
+                                                 validation_data = (X_validation, y_validation),
+                                                 input_type = "images",
+                                                 output_type = "label",
+                                                 log_batch_frequency = 10)])

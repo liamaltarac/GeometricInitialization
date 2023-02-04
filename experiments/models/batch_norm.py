@@ -1,4 +1,4 @@
-# Batch norm model 4
+    #ch norm model 4
 '''
 From :https://github.com/LeoTungAnh/CNN-CIFAR-100/blob/main/CNN_models.ipynb
 
@@ -19,7 +19,6 @@ def batchnorm_cnn(k_init = 'he_normal'):
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(Conv2D(256,(3,3),padding='same', kernel_initializer = k_init))
-    model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
     model.add(Dropout(0.2))
