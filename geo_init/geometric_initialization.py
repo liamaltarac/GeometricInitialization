@@ -16,7 +16,7 @@ def wrapnormal(mean, std, size):
             u2 = np.random.uniform(low=0.0, high=1.0, size=None)
             z = 1.715528*(u1-0.5)/u2
             x = 0.25*z**2
-            if x <= 1 - u2 or x <= -np.log10(u2):
+            if x <= 1 - u2 or x <= -np.log(u2):
                 break
 
         z = np.random.normal(loc=0.0, scale=1.0, size=None)
@@ -32,6 +32,8 @@ class GeometricInit3x3(Initializer):
         self.filters = None
         self.n_avg = None
         self.k = None
+        np.random.seed(self.seed)
+
 
     def __call__(self, shape, dtype=None, **kwargs):
         self.channels = int(shape[-2])
@@ -39,17 +41,24 @@ class GeometricInit3x3(Initializer):
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2
         
-        asym_mag_var = (self.k**2-1)/(self.n_avg * self.k**2)#1/self.channels
-        s = np.sqrt(2/(4-np.pi))*np.sqrt(asym_mag_var)
-        magnitude = tfp.random.rayleigh(
+
+        chi = tfp.distributions.Chi(4)
+        scale = np.sqrt(2)*np.sqrt(1/(2* self.n_avg * self.k**2))
+        
+        asym_mag_var = (scale**2) * chi.variance()
+        print('asym_var :', asym_mag_var)
+        magnitude = chi.sample(sample_shape=[1, self.channels, self.filters], seed = self.seed)*scale
+        '''magnitude = tfp.random.rayleigh(
                         [1, self.channels, self.filters], 
                         scale=s, 
                         dtype=tf.float32,
                         seed=self.seed, 
-                        name = None) 
+                        name = None) '''
 
-        locs = np.random.uniform(low=0, high=2*np.pi, size=self.filters)
-        theta_var = (self.k**2)/(self.k**2 - 1) #2/(self.k**2)
+        locs =np.random.uniform(low=0, high=2*np.pi, size=self.filters)       
+        theta_var = 1/(self.n_avg * asym_mag_var)
+        print('theta_var :', theta_var)
+
         #print(theta_var)
         #c = 1 - theta_var
         #print(c)
@@ -78,28 +87,24 @@ class GeometricInit3x3(Initializer):
         asym_filters = tf.math.multiply((asym_filters / norm) , magnitude)
 
 
-        sym_mag_var = 1/self.n_avg #1/self.channels
-        s = np.sqrt(2/(4-np.pi))*np.sqrt(sym_mag_var)
-        magnitude = tfp.random.rayleigh(
-                        [1, self.channels, self.filters], 
-                        scale=s, 
-                        dtype=tf.float32,
-                        seed=self.seed, 
-                        name = None) 
 
 
+    
+    
 
-        a = tf.random.uniform([1, self.channels, self.filters], minval=-1, maxval=1, dtype=tf.dtypes.float32, seed = self.seed)
-        b = tf.random.uniform([1, self.channels, self.filters], minval=-1, maxval=1, dtype=tf.dtypes.float32, seed = self.seed)
-        c = tf.random.uniform([1, self.channels, self.filters], minval=-1, maxval=1, dtype=tf.dtypes.float32, seed = self.seed)
+        chi = tfp.distributions.Chi(3)
+        std = np.sqrt(1/(chi.variance() * self.n_avg * 33))
+        print('sym_var :', (std**2) * chi.variance())
+
+        magnitude = chi.sample(sample_shape=[1, self.channels, self.filters], seed = self.seed)  
+        a = tf.random.normal([1, self.channels, self.filters], stddev = std, dtype=tf.dtypes.float32, seed = self.seed)
+        b = tf.random.normal([1, self.channels, self.filters], stddev = std,  dtype=tf.dtypes.float32, seed = self.seed)
+        c = tf.random.normal([1, self.channels, self.filters], stddev = std,  dtype=tf.dtypes.float32, seed = self.seed)
 
         sym_filters = tf.stack([tf.concat([a,b, a], axis=0), 
                                 tf.concat([b, c, b], axis=0),
                                 tf.concat([a, b, a], axis=0)])
 
-        norm = tf.sqrt(tf.reduce_sum(tf.square(sym_filters), axis=[0,1]))  
-        print("N shape ", norm.shape)
-        sym_filters = tf.math.multiply((sym_filters / norm) , magnitude)       
 
 
         return (asym_filters + sym_filters ) * tf.math.rint(tf.random.uniform([1, self.channels, self.filters], 
