@@ -42,14 +42,14 @@ if __name__ == '__main__':
     import wandb
     from wandb.keras import WandbCallback
 
-    wandb.init(project="Test Weights and Gradient Histogram", entity="geometric_init")
-    wandb.run.name = '8_layer_batchNorm_cifar100_OURS'
+    wandb.init(project="8_layer_cnn_cifar100", entity="geometric_init")
+    wandb.run.name = '8_layer_cnn_cifar100_OURS_NewMath_3'
     wandb.config = {
     "learning_rate": 1e-4,
     'batch_size' : 64,
     'epochs' : 10,
     "initialization": "GeometricInit3x3Relu",
-    "model": '8_layer_BatchNorm CNN'
+    "model": '8_layer_BatchNorm CNN New Math'
     }
 
     model.compile(
@@ -66,11 +66,12 @@ if __name__ == '__main__':
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
-                        validation_data=(X_validation, y_validation), 
-                        callbacks=[WandbCallback(log_gradients   = (True), 
-                                                 log_weights     = (True),
-                                                 training_data   = (X_train, y_train),
-                                                 validation_data = (X_validation, y_validation),
-                                                 input_type = "images",
-                                                 output_type = "label",
-                                                 log_batch_frequency = 10)])
+                        validation_data=(X_validation, y_validation),
+                        callbacks=[WandbCallback()]) 
+    '''log_gradients   = (True), 
+    log_weights     = (True),
+    training_data   = (X_train, y_train),
+    validation_data = (X_validation, y_validation)
+    input_type = "images",
+    output_type = "label",
+    )])'''
