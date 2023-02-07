@@ -43,7 +43,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     wandb.init(project="8_layer_cnn_cifar100", entity="geometric_init")
-    wandb.run.name = '8_layer_batchNorm_cifar100_OURS_NewMath_3'
+    wandb.run.name = '8_layer_cnn_cifar100_OURS_NewMath_3'
     wandb.config = {
     "learning_rate": 1e-4,
     'batch_size' : 64,
