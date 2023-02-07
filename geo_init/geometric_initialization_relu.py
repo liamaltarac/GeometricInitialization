@@ -97,9 +97,9 @@ class GeometricInit3x3Relu(Initializer):
 
 
 
-        return (asym_filters + sym_filters ) * tf.math.rint(tf.random.uniform([1, self.channels, self.filters], 
-                                                                  minval=-1, maxval=1, dtype=tf.dtypes.float32,
-                                                                  seed=self.seed))
+        return (asym_filters + sym_filters ) * ((tf.math.rint(tf.random.uniform([1, self.channels, self.filters], 
+                                                                  minval=0, maxval=1, dtype=tf.dtypes.float32,
+                                                                  seed=self.seed))*2)-1)
 
 
     def get_config(self):  # To support serialization
