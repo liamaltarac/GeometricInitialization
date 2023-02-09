@@ -114,29 +114,48 @@ def getSobelAngle(f):
     s_h = sobel_h(f)
     s_v = sobel_v(f)
     return (np.degrees(np.arctan2(s_h,s_v)))%180
+def getSymAntiSym(filter):
 
+    #patches = extract_image_patches(filters, [1, k, k, 1],  [1, k, k, 1], rates = [1,1,1,1] , padding = 'VALID')
+    #print(patches)
+    mat_flip_x = np.fliplr(filter)
+
+    mat_flip_y = np.flipud(filter)
+
+    mat_flip_xy =  np.fliplr( np.flipud(filter))
+
+    sum = filter + mat_flip_x + mat_flip_y + mat_flip_xy
+    mat_sum_rot_90 = np.rot90(sum)
+    
+    return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 if __name__ == "__main__":
 
-    gi = GeometricInit3x3()
+    gi = GeometricInit3x3Relu()
     filters = gi.__call__([3,3,256,32])
     FILTER = [15] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
-    thetas = []
 
     print("F shape : ", filters.shape)
+    thetas = []
+    anti_mags = []
+    sym_mags = []
+
     mags = []
     for i, channel in enumerate(CHANNEL):
         for j, filter in enumerate(FILTER):
             
             f = filters[:,:,:, filter]
             f = np.array(f[:,:, channel])  
-            print(f)
+            s, a = getSymAntiSym(f)
             theta = getSobelAngle(f)
             theta = theta[theta.shape[0]//2, theta.shape[1]//2]
             thetas.append(theta)
-            mag = np.linalg.norm(f) 
+            sym_mag = np.linalg.norm(s) 
+            anti_mag = np.linalg.norm(a) 
+            anti_mags.append(anti_mag)
+            sym_mags.append(sym_mag)
 
-            mags.append(mag)
+            mags.append(np.linalg.norm(f))
 
     plt.hist(thetas, bins=16)
     plt.xticks(np.arange(0, 2*np.pi, step=1), size='small', rotation=0)    
@@ -149,10 +168,11 @@ if __name__ == "__main__":
     n = len(thetas)
     r = np.sqrt(np.sum(np.cos(t_rad))**2 + np.sum(np.sin(t_rad))**2 )
     print(1 - r/n)
-
     plt.hist(mags, bins=32)
     plt.xticks(np.arange(np.min(mags), np.max(mags), step=45), size='small', rotation=0)    
     plt.xlabel('magnitude ')
     plt.ylabel('Count')
     plt.show()
     len(mags)
+    print(np.var(anti_mags))
+    print(np.var(sym_mags))
