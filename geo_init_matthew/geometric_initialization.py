@@ -3,8 +3,9 @@ from tensorflow.keras.initializers import Initializer
 #from keras import backend
 import tensorflow_probability as tfp
 import math
-import numpy as np
+#import numpy as np
 from scipy.stats import wrapcauchy
+import math as m
 
 
 class GeometricInit3x3(Initializer):
@@ -18,7 +19,7 @@ class GeometricInit3x3(Initializer):
 
         self.rho = None
 
-        np.random.seed(self.seed)
+        #np.random.seed(self.seed)
         tf.random.set_seed(self.seed)
 
 
@@ -27,46 +28,56 @@ class GeometricInit3x3(Initializer):
         self.channels = int(shape[-2])
         self.filters = int(shape[-1])
         self.k = shape[0]        
-        self.n_avg = (self.channels+self.filters)/2
-        self.rho = 1.0
+        self.n_avg = (self.channels+self.filters)/2.0
+        self.rho = .8
 
-        std_init = np.sqrt(1/self.n_avg)  #glorot
-
+        std_init = tf.math.sqrt(1/self.n_avg)  #glorot
 
 
         #Anti-symetric 
-        theta = tfp.distributions.Uniform(low=0, high=2*np.pi).sample(sample_shape=(self.filters), seed=self.seed)       
+        theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         print(theta)
-        R = tf.stack([tf.math.cos(-np.pi/4 + theta ), -tf.math.sin(-np.pi/4  + theta),     
-                    tf.math.sin(-np.pi/4  + theta),  tf.math.cos(-np.pi/4  + theta)])
-        R = tf.reshape(R, (self.filters, 2,2))
-        
+        R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
+                     tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
+        R = tf.cast(R,  tf.dtypes.float64)
+        #R = tf.reshape(R, (self.filters, 2,2))
+        print('R T: ', tf.linalg.matrix_transpose(R))
+        print('R : ', R)
+
         var_ra2 = 12*std_init**4
         var_x  = (var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
         var_y = var_x
         print(var_x)
-        cov = tf.stack([var_x, self.rho*np.sqrt(var_x*var_y),      
-                        self.rho*np.sqrt(var_x*var_y),  var_y ])
-        cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.float32)
+        cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
+                        self.rho*tf.math.sqrt(var_x*var_y),  var_y ])
         print(cov)
+
+        cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float64)
+        print(cov)
+
         
-        cov = R @ cov @ tf.linalg.matrix_transpose(R)
+        #cov = R @ cov @ tf.linalg.matrix_transpose(R)
+        cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
 
-        print(cov)
+        print('Cov', cov)
 
-        z = tfp.distributions.MultivariateNormalFullCovariance(tf.zeros(2),  
-                            covariance_matrix = cov, validate_args = True, allow_nan_stats=False)
-        z = z.sample(sample_shape=([1, self.channels, self.filters]), seed = self.seed)
+        z = tfp.distributions.MultivariateNormalTriL(loc = None,  
+                            scale_tril=tf.linalg.cholesky(cov), validate_args = False, allow_nan_stats=True)
+        print("OK")
+        z = z.sample(sample_shape=([1, self.channels]), seed = self.seed)
         print(z.shape)
+        print(theta[197])
+        print(theta[193])
+        print(theta[190])
 
-        x, y = z[:,:,0,0,0], z[:,:,0,0, 1]
+        x, y = z[0,:,:,0], z[0,:,:,1]
 
         ra = tf.math.sqrt(x**2 + y**2)
         theta = tf.math.atan2(y, x)
 
 
         # Symetric math
-        var_rs =  std_init**2 * (3-8/np.pi)
+        var_rs =  std_init**2 * (3-8/m.pi)
 
 
 
@@ -134,12 +145,13 @@ def getSobelAngle(f):
 if __name__ == "__main__":
 
     gi = GeometricInit3x3(seed=5)
-    x,y = gi.__call__([3,3,256,1])
+    x,y = gi.__call__([3,3,256,200])
+    print(x.shape, y.shape)
     fig = plt.figure()
     ax = fig.add_subplot()
-    plt.scatter(x,y)
-    ax.set_xlim(-10, 10)
-    ax.set_ylim(-10, 10)
+    plt.scatter(x[:,0],y[:,0])
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
 
     ax.set_box_aspect(1)
     plt.show()
