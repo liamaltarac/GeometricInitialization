@@ -116,10 +116,11 @@ def getSobelAngle(f):
     return (np.degrees(np.arctan2(s_h,s_v)))%180
 
 if __name__ == "__main__":
+    matplotlib.use('TKAgg')
 
-    gi = GeometricInit3x3()
-    filters = gi.__call__([3,3,256,32])
-    FILTER = [15] #list(range(t.shape[-1]))
+    gi = GeometricInit3x3Relu()
+    filters = gi.__call__([3,3,512,512])
+    FILTER = [11] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
     thetas = []
 
