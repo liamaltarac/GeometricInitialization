@@ -9,12 +9,13 @@ if __name__ == '__main__':
 
     from .models.batch_norm import batchnorm_cnn
     from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
+    from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
 
     from tensorflow.python.client import device_lib
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init = GeometricInit3x3Relu)
+    model = batchnorm_cnn(k_init = gim)
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -42,14 +43,14 @@ if __name__ == '__main__':
     import wandb
     from wandb.keras import WandbCallback
 
-    wandb.init(project="8_layer_cnn_cifar100", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_OURS_NewMath_3'
+    wandb.init(project="8_layer_cnn_cifar100")
+    wandb.run.name = '8_layer_cnn_cifar100_matthew_HE'
     wandb.config = {
     "learning_rate": 1e-4,
     'batch_size' : 64,
     'epochs' : 10,
-    "initialization": "GeometricInit3x3Relu",
-    "model": '8_layer_BatchNorm CNN New Math'
+    "initialization": "geo init m",
+    "model": '8_layer_BatchNorm Matthew_he'
     }
 
     model.compile(

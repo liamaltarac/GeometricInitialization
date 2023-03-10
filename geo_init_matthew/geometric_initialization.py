@@ -29,102 +29,68 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = .8
+        self.rho = .5
 
-        std_init = tf.math.sqrt(1/self.n_avg)  #glorot
+        #std_init = tf.math.sqrt(1/(self.n_avg)*self.k**2)  #glorot
+        std_init = 1 #tf.math.sqrt(2/(self.channels)*self.k**2)  # he sqrt(2 / fan_in)
 
 
         #Anti-symetric 
         theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
-        print(theta)
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
-        R = tf.cast(R,  tf.dtypes.float64)
+        R = tf.cast(R,  tf.dtypes.float32)
         #R = tf.reshape(R, (self.filters, 2,2))
-        print('R T: ', tf.linalg.matrix_transpose(R))
-        print('R : ', R)
+
 
         var_ra2 = 12*std_init**4
         var_x  = (var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
         var_y = var_x
-        print(var_x)
         cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
                         self.rho*tf.math.sqrt(var_x*var_y),  var_y ])
-        print(cov)
 
-        cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float64)
-        print(cov)
+        cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float32)
 
         
         #cov = R @ cov @ tf.linalg.matrix_transpose(R)
         cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
 
-        print('Cov', cov)
 
         z = tfp.distributions.MultivariateNormalTriL(loc = None,  
                             scale_tril=tf.linalg.cholesky(cov), validate_args = False, allow_nan_stats=True)
-        print("OK")
         z = z.sample(sample_shape=([1, self.channels]), seed = self.seed)
-        print(z.shape)
-        print(theta[197])
-        print(theta[193])
-        print(theta[190])
+
 
         x, y = z[0,:,:,0], z[0,:,:,1]
 
         ra = tf.math.sqrt(x**2 + y**2)
-        theta = tf.math.atan2(y, x)
+        theta = tf.expand_dims(tf.math.atan2(y, x), axis=0)
+
+        a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*math.pi/4)
+        b = -2*tf.math.sin(theta)
+        c = -tf.math.sqrt(8.0)*tf.math.sin(theta - 9*math.pi/4)
+        d = -2*tf.math.cos(theta)
+        
+        asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
+                        tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),
+                        tf.concat( [-c, -b, -a], axis=0)])
+                
+        norm = tf.sqrt(tf.reduce_sum(tf.square(asym_filters), axis=[0,1]))  
+        asym_filters = tf.math.multiply((asym_filters / norm) , ra)
 
 
         # Symetric math
-        var_rs =  std_init**2 * (3-8/m.pi)
-
-
-
-
-        
-        
-        #sln = solve([eq1, eq2], [ra2, rs2], exclude=[p, n, rf2], manual=True, simplify=False, rational=False, minimal=True)
-        
-        '''chi = tfp.distributions.Chi(4)
-        scale = np.sqrt(2)*np.sqrt(1/(2* self.n_avg * self.k**2))
-        
-        asym_mag_var = (scale**2) * chi.variance()
-        print('asym_var :', asym_mag_var)
-        magnitude = chi.sample(sample_shape=[1, self.channels, self.filters], seed = self.seed)*scale'''
-        '''magnitude = tfp.random.rayleigh(
-                        [1, self.channels, self.filters], 
-                        scale=s, 
-                        dtype=tf.float32,
-                        seed=self.seed, 
-                        name = None) '''
-
-        '''locs =np.random.uniform(low=0, high=2*np.pi, size=self.filters)       
-        theta_var = 1/(self.n_avg * asym_mag_var)
-        print('theta_var :', theta_var)
-
-    
-    
-
-        chi = tfp.distributions.Chi(3)
-        std = np.sqrt(1/(chi.variance() * self.n_avg * 33))
-        print('sym_var :', (std**2) * chi.variance())
-
-        magnitude = chi.sample(sample_shape=[1, self.channels, self.filters], seed = self.seed)  
-        a = tf.random.normal([1, self.channels, self.filters], stddev = std, dtype=tf.dtypes.float32, seed = self.seed)
-        b = tf.random.normal([1, self.channels, self.filters], stddev = std,  dtype=tf.dtypes.float32, seed = self.seed)
-        c = tf.random.normal([1, self.channels, self.filters], stddev = std,  dtype=tf.dtypes.float32, seed = self.seed)
+        a = tf.random.normal([1, self.channels, self.filters], stddev = std_init/2, dtype=tf.dtypes.float32, seed = self.seed)
+        b = tf.random.normal([1, self.channels, self.filters], stddev = std_init/2,  dtype=tf.dtypes.float32, seed = self.seed)
+        c = tf.random.normal([1, self.channels, self.filters], stddev = std_init,  dtype=tf.dtypes.float32, seed = self.seed)
 
         sym_filters = tf.stack([tf.concat([a,b, a], axis=0), 
                                 tf.concat([b, c, b], axis=0),
-                                tf.concat([a, b, a], axis=0)])'''
+                                tf.concat([a, b, a], axis=0)])
 
 
 
-        return x,y 
-    '''(asym_filters + sym_filters ) * tf.math.rint(tf.random.uniform([1, self.channels, self.filters], 
-                                                                  minval=-1, maxval=1, dtype=tf.dtypes.float32,
-                                                                  seed=self.seed))'''
+        return (asym_filters + sym_filters ) 
 
 
     def get_config(self):  # To support serialization
@@ -134,33 +100,44 @@ from skimage.filters import sobel_h
 from skimage.filters import sobel_v
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 matplotlib.use('TKAgg')
 
 def getSobelAngle(f):
 
     s_h = sobel_h(f)
     s_v = sobel_v(f)
-    return (np.degrees(np.arctan2(s_h,s_v)))%180
+    return (np.degrees(np.arctan2(s_h,s_v)))
+
+
+def getSymAntiSym(filter):
+
+    #patches = extract_image_patches(filters, [1, k, k, 1],  [1, k, k, 1], rates = [1,1,1,1] , padding = 'VALID')
+    #print(patches)
+    mat_flip_x = np.fliplr(filter)
+
+    mat_flip_y = np.flipud(filter)
+
+    mat_flip_xy =  np.fliplr( np.flipud(filter))
+
+    sum = filter + mat_flip_x + mat_flip_y + mat_flip_xy
+    mat_sum_rot_90 = np.rot90(sum)
+    
+    return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 
 if __name__ == "__main__":
 
     gi = GeometricInit3x3(seed=5)
-    x,y = gi.__call__([3,3,256,200])
-    print(x.shape, y.shape)
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    plt.scatter(x[:,0],y[:,0])
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-
-    ax.set_box_aspect(1)
-    plt.show()
-    '''FILTER = [15] #list(range(t.shape[-1]))
+    filters = gi.__call__([3,3,256,200])
+    FILTER = [15] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
     thetas = []
 
     print("F shape : ", filters.shape)
     mags = []
+    anti_mags = []
+    sym_mags = []
+
     for i, channel in enumerate(CHANNEL):
         for j, filter in enumerate(FILTER):
             
@@ -173,6 +150,12 @@ if __name__ == "__main__":
             mag = np.linalg.norm(f) 
 
             mags.append(mag)
+            s, a = getSymAntiSym(f)
+            sym_mag = np.linalg.norm(s) 
+            anti_mag = np.linalg.norm(a) 
+            anti_mags.append(anti_mag)
+            sym_mags.append(sym_mag)
+
 
     plt.hist(thetas, bins=16)
     plt.xticks(np.arange(0, 2*np.pi, step=1), size='small', rotation=0)    
@@ -191,4 +174,7 @@ if __name__ == "__main__":
     plt.xlabel('magnitude ')
     plt.ylabel('Count')
     plt.show()
-    len(mags)'''
+    len(mags)
+    print('v_r2: ',np.var(np.array(mags)**2))
+    print('v_ra2: ',np.var(np.array(anti_mags)**2))
+    print('v_rs2: ',np.var(np.array(sym_mags)**2))

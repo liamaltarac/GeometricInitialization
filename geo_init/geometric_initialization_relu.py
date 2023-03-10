@@ -138,8 +138,8 @@ if __name__ == "__main__":
             mag = np.linalg.norm(f) 
 
             mags.append(mag)
-
-    plt.hist(thetas, bins=16)
+    print('v_r2: ',np.var(np.array(mags)**2))
+    '''plt.hist(thetas, bins=16)
     plt.xticks(np.arange(0, 2*np.pi, step=1), size='small', rotation=0)    
     plt.title("Layer {}, Filter = {}, Channel orientation Distribution".format("N", FILTER[0]))
     plt.xlabel('θ (Deg)')
@@ -155,5 +155,4 @@ if __name__ == "__main__":
     plt.xticks(np.arange(np.min(mags), np.max(mags), step=45), size='small', rotation=0)    
     plt.xlabel('magnitude ')
     plt.ylabel('Count')
-    plt.show()
-    len(mags)
+    plt.show()'''
