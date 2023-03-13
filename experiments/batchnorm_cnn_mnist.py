@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     sys.path.append("..")    
 
-    from .models.batch_norm import batchnorm_cnn
+    from .models.batch_norm_mnist import batchnorm_cnn_mnist
     from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
     from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
 
@@ -17,13 +17,13 @@ if __name__ == '__main__':
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init = gim)
+    model = batchnorm_cnn_mnist(k_init = gim)
 
-    num_classes = 100
-    input_shape = (32, 32, 3)
+    num_classes = 10
+    input_shape = (28, 28, 1)
 
     # Load the data and split it between train and test sets
-    (x_train, y_train), (x_test, y_test) = keras.datasets.cifar100.load_data()
+    (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 
     x_train = x_train.astype("float32") / 255
     x_test = x_test.astype("float32") / 255
@@ -31,21 +31,15 @@ if __name__ == '__main__':
     from sklearn.model_selection import train_test_split
     from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-    # Configuration for creating new images
-    train_datagen = ImageDataGenerator(
-        rotation_range=20,
-        horizontal_flip=True,
-    )
 
     X_train, X_validation, y_train, y_validation = train_test_split(x_train, y_train, test_size=0.2, random_state=93)
-    train_datagen.fit(X_train)
 
 
     import wandb
     from wandb.keras import WandbCallback
 
     wandb.init(project="new_approach")
-    wandb.run.name = '8_layer_cnn_cifar100_matthew_HE_multiLR_7'
+    wandb.run.name = '8_layer_cnn_cifar100_matthew_HE_multiLR'
     wandb.config = {
     "learning_rate": [1e-6, 1e-4],
     'batch_size' : 64,
@@ -56,12 +50,10 @@ if __name__ == '__main__':
 
     optimizers = [
     tf.keras.optimizers.RMSprop(learning_rate=1e-6),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    tf.keras.optimizers.RMSprop(learning_rate=1e-2)
     ]
     optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
-    
-    #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
 
     model.compile(
             optimizer=optimizer,

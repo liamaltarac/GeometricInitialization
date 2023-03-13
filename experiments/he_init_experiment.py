@@ -17,7 +17,7 @@ if __name__ == '__main__':
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init = gim)
+    model = batchnorm_cnn()
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -44,24 +44,24 @@ if __name__ == '__main__':
     import wandb
     from wandb.keras import WandbCallback
 
-    wandb.init(project="new_approach")
-    wandb.run.name = '8_layer_cnn_cifar100_matthew_HE_multiLR_7'
+    wandb.init(project="he_experiment")
+    wandb.run.name = 'filter_test_1'
     wandb.config = {
-    "learning_rate": [1e-6, 1e-4],
+    "learning_rate": [1e-4],
     'batch_size' : 64,
     'epochs' : 10,
-    "initialization": "geo init m",
-    "model": '8_layer_BatchNorm Matthew_he'
+    "initialization": "He",
+    "model": '8_layer_BatchNorm_He'
     }
 
-    optimizers = [
+    '''optimizers = [
     tf.keras.optimizers.RMSprop(learning_rate=1e-6),
     tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     ]
     optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
+    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
     
-    #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
 
     model.compile(
             optimizer=optimizer,
@@ -74,16 +74,17 @@ if __name__ == '__main__':
     batch_size = 64
     epochs = 10
 
+
+
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback()]) 
-    '''log_gradients   = (True), 
-    log_weights     = (True),
-    training_data   = (X_train, y_train),
-    validation_data = (X_validation, y_validation)
-    input_type = "images",
-    output_type = "label",
-    )])'''
+                        callbacks=[WandbCallback(
+                                    log_gradients   = (True), 
+                                    training_data   = (X_train, y_train),
+                                    #validation_data = (X_validation, y_validation)
+                                    #input_type = "images",
+                                    #output_type = "label",
+                        )])
