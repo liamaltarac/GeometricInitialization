@@ -32,13 +32,13 @@ class GeometricInit3x3(Initializer):
         self.rho = 0.5
 
         #std_init = tf.math.sqrt(1/(self.n_avg)*self.k**2)  #glorot
-        std_init = tf.math.sqrt(2/(self.channels*self.k**2))  # he sqrt(2 / fan_in)
+        std_init = 1 #tf.math.sqrt(2/(self.channels*self.k**2))  # he sqrt(2 / fan_in)
 
 
         #Anti-symetric 
         theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
 
-        theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
+        #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
@@ -129,7 +129,7 @@ def getSymAntiSym(filter):
 
 if __name__ == "__main__":
 
-    gi = GeometricInit3x3(seed=5)
+    gi = GeometricInit3x3(seed=50)
     filters = gi.__call__([3,3,256,200])
     FILTER = [15] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
