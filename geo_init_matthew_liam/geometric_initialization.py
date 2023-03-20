@@ -32,14 +32,13 @@ class GeometricInit3x3(Initializer):
         self.rho = 0.5
 
         #std_init = tf.math.sqrt(1/(self.n_avg)*self.k**2)  #glorot
-        std_init_upper = 0.804173/tf.math.sqrt(self.channels)
-        std_init_lower = (0.804173*(self.rho**2 + 1)**(1/4)) / (tf.math.sqrt(self.channels) * (self.rho**2 + 23.5836)) 
-        std_init = (std_init_upper + std_init_lower)/2
+        std_init = 1 #tf.math.sqrt(2/(self.channels*self.k**2))  # he sqrt(2 / fan_in)
+
 
         #Anti-symetric 
         theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
 
-        theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
+        #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
@@ -87,7 +86,7 @@ class GeometricInit3x3(Initializer):
         b = tf.random.normal([1, self.channels, self.filters], stddev = std_init/2,  dtype=tf.dtypes.float32, seed = self.seed)
         c = tf.random.normal([1, self.channels, self.filters], stddev = std_init,  dtype=tf.dtypes.float32, seed = self.seed)
 
-        sym_filters = tf.stack([tf.concat([a,b, a],  axis=0), 
+        sym_filters = tf.stack([tf.concat([a,b, a], axis=0), 
                                 tf.concat([b, c, b], axis=0),
                                 tf.concat([a, b, a], axis=0)])
 
@@ -130,7 +129,7 @@ def getSymAntiSym(filter):
 
 if __name__ == "__main__":
 
-    gi = GeometricInit3x3(seed=5)
+    gi = GeometricInit3x3(seed=50)
     filters = gi.__call__([3,3,256,200])
     FILTER = [15] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))

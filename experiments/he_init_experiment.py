@@ -74,8 +74,6 @@ if __name__ == '__main__':
     batch_size = 64
     epochs = 10
 
-
-
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
