@@ -43,8 +43,9 @@ class GeometricInit3x3(Initializer):
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
-        #R = tf.reshape(R, (self.filters, 2,2))
 
+
+        std_a = 
 
         var_ra2 = 12*std_init**4
         var_x  = (var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
