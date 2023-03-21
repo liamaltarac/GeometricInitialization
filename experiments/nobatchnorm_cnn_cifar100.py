@@ -9,16 +9,16 @@ if __name__ == '__main__':
 
     sys.path.append("..")    
 
-    from .models.batch_norm import batchnorm_cnn
+    from .models.no_batch_norm import no_batchnorm_cnn
     from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
-    from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
+    #from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
     from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
 
     from tensorflow.python.client import device_lib
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init = gim)
+    model = no_batchnorm_cnn(k_init = gim)
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -46,21 +46,21 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     wandb.init(project="new_approach")
-    wandb.run.name = '8_layer_cnn_cifar100_Liam3'
+    wandb.run.name = '8_layer_cnn_cifar100_Liam3_noBN'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
     'epochs' : '10',
     "initialization": "geo init m",
-    "model": '8_layer_BatchNorm Matthew_he'
+    "model": '8_layer_No_BatchNorm Matthew_he'
     }
 
     optimizers = [
     tf.keras.optimizers.RMSprop(learning_rate=1e-4),
     tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     ]
-    '''optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
+    optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
+    #optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
     
     optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
 

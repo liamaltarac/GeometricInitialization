@@ -29,26 +29,26 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.5
+        self.rho = 0
 
         #std_init = tf.math.sqrt(1/(self.n_avg)*self.k**2)  #glorot
-        std_init_upper = 0.804173/tf.math.sqrt(self.channels)
-        std_init_lower = (0.804173*(self.rho**2 + 1)**(1/4)) / (tf.math.sqrt(self.channels) * (self.rho**2 + 23.5836)) 
-        std_init = (std_init_upper + std_init_lower)/2
+        n = tf.cast(self.channels, dtype=tf.float32)
+        p = tf.cast(self.rho, dtype=tf.float32)
+        s_i_up = 0.804173/tf.math.sqrt(n)
+        s_i_low = (0.804173*(p**2 + 1)**(1/4)) / (tf.math.sqrt(n) * (p**2 + 23.5836)**(1/4))
+        s_i = (s_i_up + s_i_low)/2
 
         #Anti-symetric 
-        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
+        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=4).sample(sample_shape=(self.filters), seed=self.seed) )/4
 
-        theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
+        #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
+        
+        std_a = 0.020737*tf.math.sqrt(-4932.82*(tf.math.sqrt(n**2 * (p**2 + 23.5836) * s_i**4 - 0.418214*(p**2 + 1))-3.07323))/tf.math.sqrt(n*(p**2 + 23.5836))
 
-
-        std_a = 
-
-        var_ra2 = 12*std_init**4
-        var_x  = (var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
+        var_x  = std_a**2  #(var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
         var_y = var_x
         cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
                         self.rho*tf.math.sqrt(var_x*var_y),  var_y ])
@@ -84,17 +84,19 @@ class GeometricInit3x3(Initializer):
 
 
         # Symetric math
-        a = tf.random.normal([1, self.channels, self.filters], stddev = std_init/2, dtype=tf.dtypes.float32, seed = self.seed)
-        b = tf.random.normal([1, self.channels, self.filters], stddev = std_init/2,  dtype=tf.dtypes.float32, seed = self.seed)
-        c = tf.random.normal([1, self.channels, self.filters], stddev = std_init,  dtype=tf.dtypes.float32, seed = self.seed)
+        std_s = 1.58753*tf.math.sqrt(tf.math.sqrt(n**2 * (p**2 + 23.5836) * s_i**4 - 0.418214*(p**2 + 1))+0.136083*(p**2+1))/tf.math.sqrt(n*(p**(2)+23.5836))
+
+        a = tf.random.normal([1, self.channels, self.filters], stddev = std_s, dtype=tf.dtypes.float32, seed = self.seed)
+        b = tf.random.normal([1, self.channels, self.filters], stddev = std_s,  dtype=tf.dtypes.float32, seed = self.seed)
+        c = tf.random.normal([1, self.channels, self.filters], stddev = s_i,  dtype=tf.dtypes.float32, seed = self.seed)
 
         sym_filters = tf.stack([tf.concat([a,b, a],  axis=0), 
                                 tf.concat([b, c, b], axis=0),
                                 tf.concat([a, b, a], axis=0)])
 
+        #print('stds : ', s_i, s_i_up, s_i_low, std_a, std_s)
 
-
-        return (asym_filters + sym_filters ) 
+        return (asym_filters) #+ sym_filters ) 
 
 
     def get_config(self):  # To support serialization
@@ -127,12 +129,12 @@ def getSymAntiSym(filter):
     sum = filter + mat_flip_x + mat_flip_y + mat_flip_xy
     mat_sum_rot_90 = np.rot90(sum)
     
-    return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
+    return  (sum + mat_sumrot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 
 if __name__ == "__main__":
 
     gi = GeometricInit3x3(seed=5)
-    filters = gi.__call__([3,3,256,200])
+    filters = gi.__call__([3,3,128,200])
     FILTER = [15] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
     thetas = []
@@ -185,4 +187,3 @@ if __name__ == "__main__":
     print('v_ra2: ',np.var(np.array(anti_mags)**2))
     print('v_rs2: ',np.var(np.array(sym_mags)**2))
     print('var_init: ',np.var(np.array(f_vals)))
-
