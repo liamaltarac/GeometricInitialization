@@ -8,7 +8,29 @@ from scipy.stats import wrapcauchy
 import math as m
 
 
-class GeometricInit3x3(Initializer):
+def getSobelAngle(f):
+
+    s_h = sobel_h(f)
+    s_v = sobel_v(f)
+    return (np.arctan2(s_h,s_v))
+
+
+def getSymAntiSym(filter):
+
+    #patches = extract_image_patches(filters, [1, k, k, 1],  [1, k, k, 1], rates = [1,1,1,1] , padding = 'VALID')
+    #print(patches)
+    mat_flip_x = np.fliplr(filter)
+
+    mat_flip_y = np.flipud(filter)
+
+    mat_flip_xy =  np.fliplr( np.flipud(filter))
+
+    sum = filter + mat_flip_x + mat_flip_y + mat_flip_xy
+    mat_sum_rot_90 = np.rot90(sum)
+    
+    return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
+
+class GeometricInit3x3Naive(Initializer):
 
     def __init__(self, seed = None):
         self.seed = seed
@@ -42,43 +64,47 @@ class GeometricInit3x3(Initializer):
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
-        #R = tf.reshape(R, (self.filters, 2,2))
-
-
-        var_ra2 = 12*std_init**4
-        var_x  = (var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
-        var_y = var_x
-        cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
-                        self.rho*tf.math.sqrt(var_x*var_y),  var_y ])
-
+        cov = tf.stack([1,         self.rho,      
+                        self.rho,  1 ])
         cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float32)
-
-        
-        #cov = R @ cov @ tf.linalg.matrix_transpose(R)
         cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
-
-
         z = tfp.distributions.MultivariateNormalTriL(loc = None,  
                             scale_tril=tf.linalg.cholesky(cov), validate_args = False, allow_nan_stats=True)
         z = z.sample(sample_shape=([1, self.channels]), seed = self.seed)
-
+        print("Z.shape = ", z.shape)
 
         x, y = z[0,:,:,0], z[0,:,:,1]
 
-        ra = tf.math.sqrt(x**2 + y**2)
         theta = tf.expand_dims(tf.math.atan2(y, x), axis=0)
 
         a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*math.pi/4)
         b = -2*tf.math.sin(theta)
         c = -tf.math.sqrt(8.0)*tf.math.sin(theta - 9*math.pi/4)
         d = -2*tf.math.cos(theta)
-        
+
+
+        initializer = tf.keras.initializers.RandomNormal(stddev=std_init)  #GlorotNormal()
+        filters = initializer(shape=shape)
+        ra = np.empty((self.channels, self.filters), float)
+        for i in range(self.channels):
+            for j in range(self.filters):
+            
+                f = filters[:,:,:, j]
+                f = np.array(f[:,:, i])  
+
+                sym, anti = getSymAntiSym(f)
+                sym_mag = np.linalg.norm(sym) 
+                anti_mag = np.linalg.norm(anti) 
+                ra[i, j] = anti_mag
+        print("RA shape = ", ra.shape )
+
         asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
                         tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),
                         tf.concat( [-c, -b, -a], axis=0)])
                 
         norm = tf.sqrt(tf.reduce_sum(tf.square(asym_filters), axis=[0,1]))  
-        asym_filters = tf.math.multiply((asym_filters / norm) , ra)
+        print("Norm Shape :", norm.shape)
+        asym_filters = tf.math.multiply((asym_filters / norm) , np.expand_dims(ra, axis=0))
 
 
         # Symetric math
@@ -105,31 +131,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 matplotlib.use('TKAgg')
 
-def getSobelAngle(f):
 
-    s_h = sobel_h(f)
-    s_v = sobel_v(f)
-    return (np.arctan2(s_h,s_v))
-
-
-def getSymAntiSym(filter):
-
-    #patches = extract_image_patches(filters, [1, k, k, 1],  [1, k, k, 1], rates = [1,1,1,1] , padding = 'VALID')
-    #print(patches)
-    mat_flip_x = np.fliplr(filter)
-
-    mat_flip_y = np.flipud(filter)
-
-    mat_flip_xy =  np.fliplr( np.flipud(filter))
-
-    sum = filter + mat_flip_x + mat_flip_y + mat_flip_xy
-    mat_sum_rot_90 = np.rot90(sum)
-    
-    return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 
 if __name__ == "__main__":
 
-    gi = GeometricInit3x3(seed=50)
+    gi = GeometricInit3x3Naive(seed=50)
     filters = gi.__call__([3,3,256,200])
     FILTER = [15] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
@@ -146,7 +152,7 @@ if __name__ == "__main__":
             
             f = filters[:,:,:, filter]
             f = np.array(f[:,:, channel])  
-            print(f)
+            #print(f)
             f_vals.append(f)
             theta = getSobelAngle(f)
             theta = theta[theta.shape[0]//2, theta.shape[1]//2]

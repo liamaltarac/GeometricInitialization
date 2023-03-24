@@ -11,8 +11,8 @@ if __name__ == '__main__':
 
     from .models.no_batch_norm import no_batchnorm_cnn
     from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
-    #from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
-    from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
+    from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
+    #from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
 
     from tensorflow.python.client import device_lib
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))

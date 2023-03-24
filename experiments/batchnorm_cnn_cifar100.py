@@ -12,13 +12,14 @@ if __name__ == '__main__':
     from .models.batch_norm import batchnorm_cnn
     from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
     from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
-    from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
+    #from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
+    from .callbacks.filter_layout_logger import FLL
 
     from tensorflow.python.client import device_lib
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init = gim)
+    model = batchnorm_cnn(k_init =  gim)
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -46,13 +47,13 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     wandb.init(project="new_approach")
-    wandb.run.name = '8_layer_cnn_cifar100_Liam3'
+    wandb.run.name = '8_layer_cnn_cifar100_Matthew_3'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
     'epochs' : '10',
     "initialization": "geo init m",
-    "model": '8_layer_BatchNorm Matthew_he'
+    "model": '8_layer_BatchNorm Liam'
     }
 
     optimizers = [
@@ -75,12 +76,13 @@ if __name__ == '__main__':
     batch_size = 64
     epochs = 10
 
+    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback()]) 
+                        callbacks=[WandbCallback(), layout_callback]) 
     '''log_gradients   = (True), 
     log_weights     = (True),
     training_data   = (X_train, y_train),

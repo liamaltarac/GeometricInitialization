@@ -29,7 +29,7 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0
+        self.rho = 0.8
 
         #std_init = tf.math.sqrt(1/(self.n_avg)*self.k**2)  #glorot
         n = tf.cast(self.channels, dtype=tf.float32)
@@ -39,15 +39,15 @@ class GeometricInit3x3(Initializer):
         s_i = (s_i_up + s_i_low)/2
 
         #Anti-symetric 
-        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=4).sample(sample_shape=(self.filters), seed=self.seed) )/4
+        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=360).sample(sample_shape=(self.filters), seed=self.seed) )/360
 
         #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
         
-        std_a = 0.020737*tf.math.sqrt(-4932.82*(tf.math.sqrt(n**2 * (p**2 + 23.5836) * s_i**4 - 0.418214*(p**2 + 1))-3.07323))/tf.math.sqrt(n*(p**2 + 23.5836))
-
+        #std_a = 0.020737*tf.math.sqrt(-4932.82*(tf.math.sqrt(n**2 * (p**2 + 23.5836) * s_i**4 - 0.418214*(p**2 + 1))-3.07323))/tf.math.sqrt(n*(p**2 + 23.5836))
+        std_a = (3**(3/4)*tf.math.sqrt(2.0))/(6*tf.math.sqrt(n))
         var_x  = std_a**2  #(var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
         var_y = var_x
         cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
@@ -129,7 +129,7 @@ def getSymAntiSym(filter):
     sum = filter + mat_flip_x + mat_flip_y + mat_flip_xy
     mat_sum_rot_90 = np.rot90(sum)
     
-    return  (sum + mat_sumrot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
+    return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 
 if __name__ == "__main__":
 
