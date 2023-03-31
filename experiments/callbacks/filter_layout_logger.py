@@ -60,7 +60,8 @@ class FLL(tf.keras.callbacks.Callback):
 
                 mags = []
                 anti_mags = []
-                sym_mags = []
+                sym_c = []
+                sym_b = []
                 f_vals = []
 
                 for i, channel in enumerate(channels):
@@ -75,29 +76,41 @@ class FLL(tf.keras.callbacks.Callback):
                     mag = np.linalg.norm(f) 
                     mags.append(mag)
                     s, a = self.getSymAntiSym(f)
+                    sym_c.append(s[0,0])
+                    sym_b.append(s[1,0])
                     anti_mag = np.linalg.norm(a) 
                     anti_mags.append(anti_mag)
 
 
-                fig = plt.figure(figsize=(10,6))
+                fig, ax = plt.subplots(1,3)
+                fig.set_tight_layout(True)
 
-                ax = fig.add_subplot()
                 x =anti_mags*np.cos((thetas))
                 y = anti_mags*np.sin((thetas))
 
                 lim_x = np.max(np.abs(x))
                 lim_y = np.max(np.abs(y))
                 lim = np.max([lim_x, lim_y])
-                ax.set_xlim(-lim, lim)
-                ax.set_ylim(-lim, lim)
-                plt.scatter(x,y)
-                ax.set_box_aspect(1)
 
+                ax[0].set_xlim(-lim, lim)
+                ax[0].set_ylim(-lim, lim)
+                ax[0].scatter(x,y)
+                ax[0].set_box_aspect(1)
 
+                ax[1].hist(thetas, bins=32)
+                ax[1].set_box_aspect(1)
 
-                ax.set_box_aspect(1)
-                plt.savefig('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter),self.ft))
-                print('Saving Layer_{}_Filter_{}.{}'.format(str(layer), str(filter),self.ft))
+                #Symetric Hist
+                ax[2].scatter(sym_b,sym_c)
+                lim_x = np.max(np.abs(sym_b))
+                lim_y = np.max(np.abs(sym_c))
+                lim = np.max([lim_x, lim_y])
+                ax[2].set_xlim(-lim, lim)
+                ax[2].set_ylim(-lim, lim)
+                ax[2].set_box_aspect(1)
+
+                plt.savefig('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
+                print('Saving Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
                 plt.close()
                 self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter),self.ft))})
 

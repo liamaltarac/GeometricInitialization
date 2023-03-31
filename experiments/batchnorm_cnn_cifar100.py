@@ -10,8 +10,10 @@ if __name__ == '__main__':
     sys.path.append("..")    
 
     from .models.batch_norm import batchnorm_cnn
-    from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
-    from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
+    #from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
+    #from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
+    from geo_init_matthew.geometric_initialization_with_chi_mag import GeometricInit3x3 as gim
+
     #from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
     from .callbacks.filter_layout_logger import FLL
 
@@ -47,7 +49,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     wandb.init(project="new_approach")
-    wandb.run.name = '8_layer_cnn_cifar100_Matthew_3'
+    wandb.run.name = '8_layer_cnn_cifar100_Matthew_chi_mag'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
