@@ -21,37 +21,55 @@ class GeometricInit3x3(Initializer):
         self.std_init = None
 
         self.antisym_dist = None
+        
 
         #np.random.seed(self.seed)
         tf.random.set_seed(self.seed)
 
     def _color(self, dist, cov):
         # Color Transfor (isotropic->anisotropic) 
-        dist = dist/ tf.transpose(tf.math.sqrt(tfp.stats.variance(dist, -1)))
 
+        dist =  tf.reshape(dist, (2, self.channels*self.filters))
+        # Make distribution have unit variance
+        dist = dist/tf.expand_dims(tf.math.sqrt(tfp.stats.variance(dist, -1)), -1)
+        
         e_vals, e_vec = tf.linalg.eigh(cov)
         e_vals = tf.linalg.diag(e_vals)
 
-        return e_vec @ e_vals**(1/2) @ dist 
-    
+        new_dist = e_vec @ e_vals**(1/2) @ dist
+         
+        new_dist =  tf.reshape(new_dist, (1, 2, self.channels, self.filters))
+        print(self.channels, self.filters)
+        return new_dist
 
     def _objective(self, var_x):
-        #input x = var(x)
-        
-        var_rf2 = 18*self.std_init**4
-        
+
+
+        #input x : var(x)
         #Calculate the "colored" antisymetric distribution
         cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_x),      
                         self.rho*tf.math.sqrt(var_x*var_x),  var_x ])
-        
-        dist = self._color(dist, cov)
+        cov = tf.cast(tf.reshape(cov, (2,2)), tf.dtypes.float32)
+        dist = self._color(self.antisym_dist, cov)
 
+        x = dist[:, 0, :, :]
+        y = dist[:, 1, :, :]
 
-    def _secant_method(self, ra, ta, rs, rf,):
+        var_rf2 = 18*self.std_init**4
+
+        var_ra2 = tfp.stats.variance(x**2 + y**2, None)
+        var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
+
+        var_rs2 = var_rf2-var_ra2
+        var_rs = (var_rs2/6.0)**0.5 * (3-8/m.pi)
+        print(var_ra2, var_rs2)
+        return 6*var_x + (3-8/m.pi)*var_rs - 1/self.channels
+
+    '''def _secant_method(self, ra, ta, rs, rf,):
 
 
         cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
-                        self.rho*tf.math.sqrt(var_x*var_y),  var_y ])
+                        self.rho*tf.math.sqrt(var_x*var_y),  var_y ])'''
         
 
 
@@ -60,9 +78,9 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.8
+        self.rho = 0.5
 
-        std_init = tf.math.sqrt(2/(self.channels)*self.k**2)  #He
+        self.std_init = tf.math.sqrt(2/(self.channels*self.k**2))  #He
 
         n = tf.cast(self.channels, dtype=tf.float32)
         p = tf.cast(self.rho, dtype=tf.float32)
@@ -73,29 +91,27 @@ class GeometricInit3x3(Initializer):
         r = tfp.distributions.Chi(8).sample(sample_shape=(1,self.channels, self.filters))
         x = r*tf.math.cos(t)
         y = r*tf.math.sin(t) 
-        dist = tf.stack([x, y], axis=1)
+
+        self.antisym_dist  = tf.stack([x, y], axis=1)
+
 
 
 
         theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=360).sample(sample_shape=(self.filters), seed=self.seed) )/360
+
+
+
 
         #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
         
-        #std_a = 0.020737*tf.math.sqrt(-4932.82*(tf.math.sqrt(n**2 * (p**2 + 23.5836) * s_i**4 - 0.418214*(p**2 + 1))-3.07323))/tf.math.sqrt(n*(p**2 + 23.5836))
-        std_a = (3**(3/4)*tf.math.sqrt(2.0))/(6*tf.math.sqrt(n))
-        var_x  = std_a**2  #(var_ra2/(4*(1+self.rho**2)))**(1/2) #np.sqrt(3) * std_init**2
-        var_y = var_x
-        cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
-                        self.rho*tf.math.sqrt(var_x*var_y),  var_y ])
+        root_search_results = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/self.channels])
 
-        cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float32)
-
-        
+        print(root_search_results)
         #cov = R @ cov @ tf.linalg.matrix_transpose(R)
-        cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
+        '''cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
 
 
         z = tfp.distributions.MultivariateNormalTriL(loc = None,  
@@ -130,7 +146,7 @@ class GeometricInit3x3(Initializer):
 
         sym_filters = tf.stack([tf.concat([a,b, a],  axis=0), 
                                 tf.concat([b, c, b], axis=0),
-                                tf.concat([a, b, a], axis=0)])
+                                tf.concat([a, b, a], axis=0)])'''
 
         #print('stds : ', s_i, s_i_up, s_i_low, std_a, std_s)
 
@@ -173,7 +189,7 @@ if __name__ == "__main__":
 
     gi = GeometricInit3x3(seed=5)
     filters = gi.__call__([3,3,128,200])
-    FILTER = [15] #list(range(t.shape[-1]))
+    FILTER = [0] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
     thetas = []
 
