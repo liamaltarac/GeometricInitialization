@@ -9,19 +9,16 @@ if __name__ == '__main__':
 
     sys.path.append("..")    
 
-    from .models.batch_norm import batchnorm_cnn
-    #from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
-    #from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
-    from geo_init_matthew.geometric_initialization_with_chi_mag import GeometricInit3x3 as gim
-
+    from .models.no_batch_norm import no_batchnorm_cnn
+    from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
+    from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
     #from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
-    from .callbacks.filter_layout_logger import FLL
 
     from tensorflow.python.client import device_lib
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = batchnorm_cnn(k_init =  gim)
+    model = no_batchnorm_cnn(k_init = gim)
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -49,21 +46,21 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     wandb.init(project="new_approach")
-    wandb.run.name = '8_layer_cnn_cifar100_Matthew_chi_mag'
+    wandb.run.name = '8_layer_cnn_cifar100_Liam3_noBN'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
     'epochs' : '10',
     "initialization": "geo init m",
-    "model": '8_layer_BatchNorm Liam'
+    "model": '8_layer_No_BatchNorm Matthew_he'
     }
 
     optimizers = [
     tf.keras.optimizers.RMSprop(learning_rate=1e-4),
     tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     ]
-    '''optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
+    optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
+    #optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
     
     optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
 
@@ -78,13 +75,12 @@ if __name__ == '__main__':
     batch_size = 64
     epochs = 10
 
-    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback(), layout_callback]) 
+                        callbacks=[WandbCallback()]) 
     '''log_gradients   = (True), 
     log_weights     = (True),
     training_data   = (X_train, y_train),

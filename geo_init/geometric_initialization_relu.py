@@ -129,6 +129,7 @@ def getSymAntiSym(filter):
     
     return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 if __name__ == "__main__":
+    matplotlib.use('TKAgg')
 
     gi = GeometricInit3x3Relu()
     filters = gi.__call__([3,3,256,32])
