@@ -21,7 +21,7 @@ def batchnorm_cnn(k_init = 'he_normal'):
     model.add(Conv2D(256,(3,3),padding='same', kernel_initializer = k_init))
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
-    model.add(Dropout(0.2))
+    #model.add(Dropout(0.2))
     
     model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
     model.add(BatchNormalization())
@@ -30,7 +30,7 @@ def batchnorm_cnn(k_init = 'he_normal'):
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
-    model.add(Dropout(0.2))
+    #model.add(Dropout(0.2))
 
     model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
     model.add(BatchNormalization())
@@ -39,7 +39,7 @@ def batchnorm_cnn(k_init = 'he_normal'):
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
-    model.add(Dropout(0.2))
+    #model.add(Dropout(0.2))
 
     model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
     model.add(BatchNormalization())
@@ -48,12 +48,12 @@ def batchnorm_cnn(k_init = 'he_normal'):
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
-    model.add(Dropout(0.2))
+    #model.add(Dropout(0.2))
 
     model.add(Flatten())
     model.add(Dense(1024, kernel_initializer=HeNormal(seed=5)))
     model.add(Activation('relu'))
-    model.add(Dropout(0.2))
+    #model.add(Dropout(0.2))
     model.add(BatchNormalization(momentum=0.95, 
             epsilon=0.005,
             beta_initializer=RandomNormal(mean=0.0, stddev=0.05), 

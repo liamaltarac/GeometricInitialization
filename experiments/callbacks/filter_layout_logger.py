@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 matplotlib.use('TKAgg')
 import tensorflow as tf
+import time
 
 class FLL(tf.keras.callbacks.Callback):
 
@@ -112,5 +113,6 @@ class FLL(tf.keras.callbacks.Callback):
                 plt.savefig('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
                 print('Saving Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
                 plt.close()
+                time.sleep(0.1)
                 self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter),self.ft))})
 

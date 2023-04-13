@@ -21,7 +21,13 @@ class GeometricInit3x3(Initializer):
         self.std_init = None
 
         self.antisym_dist = None
-        
+        self.var_rf2 = None
+
+        self.var_ra2 = None
+        self.var_ra = None
+
+        self.var_rs2 = None
+        self.var_rs = None
 
         #np.random.seed(self.seed)
         tf.random.set_seed(self.seed)
@@ -31,13 +37,16 @@ class GeometricInit3x3(Initializer):
 
         # Make distribution have unit variance
         dist = dist/tf.expand_dims(tf.math.sqrt(tfp.stats.variance(dist, -1)), -1)
-        
+        #print("unit var dist shape :", dist.shape)
         e_vals, e_vec = tf.linalg.eigh(cov)
         e_vals = tf.linalg.diag(e_vals)
+        #print("e_vals shape:", e_vals.shape)
+        #print("e_vec shape:", e_vec.shape)
 
         new_dist = e_vec @ e_vals**(1/2) @ dist
          
-        new_dist =  tf.reshape(new_dist, (1, 2, self.channels, self.filters))
+        #new_dist =  tf.reshape(new_dist, (-1, 2, self.channels, self.filters))
+
         #print(self.channels, self.filters)
         return new_dist
 
@@ -51,25 +60,18 @@ class GeometricInit3x3(Initializer):
         cov = tf.cast(tf.reshape(cov, (2,2)), tf.dtypes.float32)
         dist = self._color(self.antisym_dist, cov)
 
-        x = dist[:, 0, :, :]
-        y = dist[:, 1, :, :]
+        x = dist[:, 0, :]
+        y = dist[:, 1, :]
 
-        var_rf2 = 18*self.std_init**4
+        self.var_rf2 = 18*self.std_init**4
 
-        var_ra2 = tfp.stats.variance(x**2 + y**2, None)
-        var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
+        self.var_ra2 = tfp.stats.variance(x**2 + y**2, None)
+        self.var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
 
-        var_rs2 = var_rf2-var_ra2
-        var_rs = (var_rs2/6.0)**0.5 * (3-8/m.pi)
+        self.var_rs2 = self.var_rf2-self.var_ra2
+        self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
         #print(var_ra2, var_rs2)
-        return 6*var_x + (3-8/m.pi)*var_rs - 1/self.channels
-
-    '''def _secant_method(self, ra, ta, rs, rf,):
-
-
-        cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_y),      
-                        self.rho*tf.math.sqrt(var_x*var_y),  var_y ])'''
-        
+        return 6*var_x + (3-8/m.pi)*self.var_rs - 1/self.channels
 
 
     def __call__(self, shape, dtype=None, **kwargs):
@@ -77,7 +79,7 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.5
+        self.rho = 0.3
 
         self.std_init = tf.math.sqrt(2/(self.channels*self.k**2))  #He
 
@@ -85,22 +87,22 @@ class GeometricInit3x3(Initializer):
         p = tf.cast(self.rho, dtype=tf.float32)
 
 
-        #Anti-symetric 
-        t = tfp.distributions.Uniform(0, 2*np.pi).sample(sample_shape=(1,self.channels, self.filters))
-        r = tfp.distributions.Chi(8).sample(sample_shape=(1,self.channels, self.filters))
+        #Anti-symetric initialization
+        t = tfp.distributions.Uniform(0, 2*np.pi).sample(sample_shape=(1,self.channels, self.filters), seed=self.seed)
+        r = tfp.distributions.Chi(8).sample(sample_shape=(1,self.channels, self.filters), seed=self.seed)
         x = r*tf.math.cos(t)
         y = r*tf.math.sin(t) 
 
         self.antisym_dist  = tf.stack([x, y], axis=1)
-        self.antisym_dist =  tf.reshape(self.antisym_dist, (2, self.channels*self.filters))
+        #print("anti sym orig shape:", self.antisym_dist.shape)
 
-        var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/self.channels])[0]
+        self.antisym_dist =  tf.reshape(self.antisym_dist, (-1, 2, self.channels*self.filters))
 
-        print("Var_x : ", var_x)
+        var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/n])[0]
 
-        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=360).sample(sample_shape=(self.filters), seed=self.seed) )/360
+        #print("Var_x : ", var_x)
 
-
+        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
 
 
         #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
@@ -110,27 +112,38 @@ class GeometricInit3x3(Initializer):
         
         
         
-        cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_x),      
-                        self.rho*tf.math.sqrt(var_x*var_x),  var_x ])
+        cov = tf.stack([var_x,          self.rho*var_x,      
+                        self.rho*var_x,          var_x ])
         cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float32)
         cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
-        print("Cov shape :", cov.shape)
+        #print("Cov shape :", cov.shape)
 
         self.antisym_dist  = tf.squeeze(tf.stack([x, y], axis=1), axis=0)
-        print("Dist shape :", self.antisym_dist.shape)
 
+        #print("Dist shape :", self.antisym_dist.shape)
+
+        self.antisym_dist  = tf.transpose(self.antisym_dist, perm=[2, 0, 1])
         self.antisym_dist = self._color(self.antisym_dist, cov)
-        
-        #cov = R @ cov @ tf.linalg.matrix_transpose(R)
-        '''cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
+        #print("New Dist shape :", self.antisym_dist.shape)
+
+        self.antisym_dist  = tf.expand_dims(tf.transpose(self.antisym_dist, perm=[2, 0, 1]), axis=0)
 
 
-        z = tfp.distributions.MultivariateNormalTriL(loc = None,  
-                            scale_tril=tf.linalg.cholesky(cov), validate_args = False, allow_nan_stats=True)
-        z = z.sample(sample_shape=([1, self.channels]), seed = self.seed)
+        #print(np.rad2deg(-m.pi/4 + theta[0:5]))
 
+        '''fig = plt.figure()
+        ax = fig.add_subplot()
 
-        x, y = z[0,:,:,0], z[0,:,:,1]
+        x = self.antisym_dist[0, :, 0, 0]
+        y = self.antisym_dist[0, :, 0, 1]
+        plt.scatter(x,y)
+        ax.set_xlim(-0.1, 0.1)
+        ax.set_ylim(-0.1, 0.1)
+
+        ax.set_box_aspect(1)
+        plt.show()    '''   
+
+        x, y = self.antisym_dist[0,:,:,0], self.antisym_dist[0,:,:,1]
 
         ra = tf.math.sqrt(x**2 + y**2)
         theta = tf.expand_dims(tf.math.atan2(y, x), axis=0)
@@ -147,21 +160,22 @@ class GeometricInit3x3(Initializer):
         norm = tf.sqrt(tf.reduce_sum(tf.square(asym_filters), axis=[0,1]))  
         asym_filters = tf.math.multiply((asym_filters / norm) , ra)
 
+        
+        # Symetric initialization
 
-        # Symetric math
-        std_s = 1.58753*tf.math.sqrt(tf.math.sqrt(n**2 * (p**2 + 23.5836) * s_i**4 - 0.418214*(p**2 + 1))+0.136083*(p**2+1))/tf.math.sqrt(n*(p**(2)+23.5836))
-
+        std_s = (self.var_rs2/64)**(1/4)
+        print("Var rs2:", self.var_rs2)
         a = tf.random.normal([1, self.channels, self.filters], stddev = std_s, dtype=tf.dtypes.float32, seed = self.seed)
         b = tf.random.normal([1, self.channels, self.filters], stddev = std_s,  dtype=tf.dtypes.float32, seed = self.seed)
-        c = tf.random.normal([1, self.channels, self.filters], stddev = s_i,  dtype=tf.dtypes.float32, seed = self.seed)
+        c = tf.random.normal([1, self.channels, self.filters], stddev = std_s,  dtype=tf.dtypes.float32, seed = self.seed)
 
-        sym_filters = tf.stack([tf.concat([a,b, a],  axis=0), 
+        sym_filters = tf.stack([tf.concat([a, b, a],  axis=0), 
                                 tf.concat([b, c, b], axis=0),
-                                tf.concat([a, b, a], axis=0)])'''
+                                tf.concat([a, b, a], axis=0)])
 
         #print('stds : ', s_i, s_i_up, s_i_low, std_a, std_s)
 
-        #return (asym_filters) #+ sym_filters ) 
+        return (asym_filters +   sym_filters)
 
 
     def get_config(self):  # To support serialization
@@ -215,7 +229,6 @@ if __name__ == "__main__":
             
             f = filters[:,:,:, filter]
             f = np.array(f[:,:, channel])  
-            print(f)
             f_vals.append(f)
             theta = getSobelAngle(f)
             theta = theta[theta.shape[0]//2, theta.shape[1]//2]
