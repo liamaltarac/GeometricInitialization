@@ -29,7 +29,6 @@ class GeometricInit3x3(Initializer):
     def _color(self, dist, cov):
         # Color Transfor (isotropic->anisotropic) 
 
-        dist =  tf.reshape(dist, (2, self.channels*self.filters))
         # Make distribution have unit variance
         dist = dist/tf.expand_dims(tf.math.sqrt(tfp.stats.variance(dist, -1)), -1)
         
@@ -39,7 +38,7 @@ class GeometricInit3x3(Initializer):
         new_dist = e_vec @ e_vals**(1/2) @ dist
          
         new_dist =  tf.reshape(new_dist, (1, 2, self.channels, self.filters))
-        print(self.channels, self.filters)
+        #print(self.channels, self.filters)
         return new_dist
 
     def _objective(self, var_x):
@@ -62,7 +61,7 @@ class GeometricInit3x3(Initializer):
 
         var_rs2 = var_rf2-var_ra2
         var_rs = (var_rs2/6.0)**0.5 * (3-8/m.pi)
-        print(var_ra2, var_rs2)
+        #print(var_ra2, var_rs2)
         return 6*var_x + (3-8/m.pi)*var_rs - 1/self.channels
 
     '''def _secant_method(self, ra, ta, rs, rf,):
@@ -93,9 +92,11 @@ class GeometricInit3x3(Initializer):
         y = r*tf.math.sin(t) 
 
         self.antisym_dist  = tf.stack([x, y], axis=1)
+        self.antisym_dist =  tf.reshape(self.antisym_dist, (2, self.channels*self.filters))
 
+        var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/self.channels])[0]
 
-
+        print("Var_x : ", var_x)
 
         theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=360).sample(sample_shape=(self.filters), seed=self.seed) )/360
 
@@ -107,9 +108,19 @@ class GeometricInit3x3(Initializer):
                      tf.stack([tf.math.sin(-m.pi/4  + theta),  tf.math.cos(-m.pi/4  + theta)], axis=-1)], axis= -1)
         R = tf.cast(R,  tf.dtypes.float32)
         
-        root_search_results = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/self.channels])
+        
+        
+        cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_x),      
+                        self.rho*tf.math.sqrt(var_x*var_x),  var_x ])
+        cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float32)
+        cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
+        print("Cov shape :", cov.shape)
 
-        print(root_search_results)
+        self.antisym_dist  = tf.squeeze(tf.stack([x, y], axis=1), axis=0)
+        print("Dist shape :", self.antisym_dist.shape)
+
+        self.antisym_dist = self._color(self.antisym_dist, cov)
+        
         #cov = R @ cov @ tf.linalg.matrix_transpose(R)
         '''cov = tf.matmul(tf.matmul(R, cov), R,  transpose_b=True)
 
@@ -150,7 +161,7 @@ class GeometricInit3x3(Initializer):
 
         #print('stds : ', s_i, s_i_up, s_i_low, std_a, std_s)
 
-        return (asym_filters) #+ sym_filters ) 
+        #return (asym_filters) #+ sym_filters ) 
 
 
     def get_config(self):  # To support serialization
