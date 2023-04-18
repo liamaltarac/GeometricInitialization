@@ -102,8 +102,9 @@ class GeometricInit3x3(Initializer):
 
         #print("Var_x : ", var_x)
 
-        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
-
+        #theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
+        theta = tf.linspace(np.pi/2, np.pi/2, self.filters, axis=0)
+        #print(theta)
 
         #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
         R = tf.stack([tf.stack([tf.math.cos(-m.pi/4 + theta ), -tf.math.sin(-m.pi/4  + theta)], axis = -1),     

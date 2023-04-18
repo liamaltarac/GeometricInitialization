@@ -6,6 +6,8 @@ import numpy as np
 matplotlib.use('TKAgg')
 import tensorflow as tf
 import time
+import io
+from PIL import Image
 
 class FLL(tf.keras.callbacks.Callback):
 
@@ -109,10 +111,14 @@ class FLL(tf.keras.callbacks.Callback):
                 ax[2].set_xlim(-lim, lim)
                 ax[2].set_ylim(-lim, lim)
                 ax[2].set_box_aspect(1)
+                buf = io.BytesIO()
 
-                plt.savefig('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
-                print('Saving Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
+                plt.savefig(buf, format=self.ft)
+                buf.seek(0)
                 plt.close()
-                time.sleep(0.1)
-                self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image('Layer_{}_Filter_{}.{}'.format(str(layer), str(filter),self.ft))})
+                im = Image.open(buf)
 
+                print('Saving Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
+                self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image(im)})
+
+                buf.close()

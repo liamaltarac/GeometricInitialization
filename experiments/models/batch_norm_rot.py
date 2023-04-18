@@ -4,47 +4,48 @@ From :https://github.com/LeoTungAnh/CNN-CIFAR-100/blob/main/CNN_models.ipynb
 
 '''
 from keras.models import Sequential
+from keras.layers import InputLayer
 from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPool2D
 from keras.layers.core import Dense,Activation,Dropout,Flatten
 
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.initializers import RandomNormal, Constant, HeNormal
-
-def batchnorm_cnn(k_init = 'he_normal'):
+from .layers.rot_conv2d import RotConv2D
+def batchnorm_rot_cnn():
 
     model = Sequential()
-    
-    model.add(Conv2D(256,(3,3),padding='same',input_shape=(32,32,3), kernel_initializer = k_init))
+    model.add(InputLayer(input_shape=(32,32,3)))
+    model.add(RotConv2D(256,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(256,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(256,padding='SAME'))
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
     model.add(Dropout(0.2))
     
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(512,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(512,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
     model.add(Dropout(0.2))
 
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(512,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(512,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
     model.add(Dropout(0.2))
 
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(512,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(RotConv2D(512,padding='SAME'))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))

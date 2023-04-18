@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     sys.path.append("..")    
 
-    from .models.batch_norm import batchnorm_cnn as cnn
+    from .models.batch_norm_rot import batchnorm_rot_cnn as cnn
     #from .models.no_batch_norm import no_batchnorm_cnn as cnn
 
     #from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
@@ -21,10 +21,12 @@ if __name__ == '__main__':
     from .callbacks.filter_layout_logger import FLL
 
     from tensorflow.python.client import device_lib
+    #physical_devices = tf.config.list_physical_devices('GPU')
+    #tf.config.experimental.set_memory_growth(physical_devices[0], True)
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    model = cnn(k_init=gim)
+    model = cnn()
 
     num_classes = 100
     input_shape = (32, 32, 3)
@@ -52,7 +54,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_Heuristic_batchnorm'
+    wandb.run.name = '8_layer_roation_cnn__cifar100'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
