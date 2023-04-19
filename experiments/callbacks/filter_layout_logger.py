@@ -69,7 +69,7 @@ class FLL(tf.keras.callbacks.Callback):
 
                 for i, channel in enumerate(channels):
                         
-                    f = weights[:,:,:, filter]
+                    f = weights.numpy()[:,:,:, filter]
                     f = np.array(f[:,:, channel])  
                     
                     theta = self.getSobelAngle(f)

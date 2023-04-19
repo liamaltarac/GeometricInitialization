@@ -63,14 +63,14 @@ if __name__ == '__main__':
     "model": '8_layer_BatchNorm_Heuristic_Liam'
     }
 
-    '''optimizers = [
-    tf.keras.optimizers.RMSprop(learning_rate=1e-6),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-3)
+    optimizers = [
+    tf.keras.optimizers.RMSprop(learning_rate=1e-2),
+    tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     ]
     optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
+    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
     
-    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
 
     model.compile(
             optimizer=optimizer,
@@ -83,13 +83,13 @@ if __name__ == '__main__':
     batch_size = 64
     epochs = 10
 
-    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
+    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={2: [1, 10, 100], 5: [1, 10, 100] })#, 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback(), layout_callback]) 
+                        callbacks=[WandbCallback() , layout_callback]) 
     
     wandb.finish()
 
