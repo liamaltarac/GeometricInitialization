@@ -63,14 +63,14 @@ class GeometricInit3x3(Initializer):
         x = dist[:, 0, :]
         y = dist[:, 1, :]
 
-        self.var_rf2 = 18*self.std_init**4
+        self.var_rf2 = 1.1922e-5 #18*self.std_init**4
 
         self.var_ra2 = tfp.stats.variance(x**2 + y**2, None)
         self.var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
 
         self.var_rs2 = self.var_rf2-self.var_ra2
         self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
-        #print(var_ra2, var_rs2)
+        print(self.var_ra2, self.var_rs2)
         return 6*var_x + (3-8/m.pi)*self.var_rs - 1/self.channels
 
 
@@ -79,9 +79,9 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.3
+        self.rho = 0.7
 
-        self.std_init = tf.math.sqrt(2/(self.channels*self.k**2))  #He
+        self.std_init = tf.math.sqrt(1/(self.n_avg*self.k**2))  #Glorot
 
         n = tf.cast(self.channels, dtype=tf.float32)
         p = tf.cast(self.rho, dtype=tf.float32)
@@ -102,8 +102,8 @@ class GeometricInit3x3(Initializer):
 
         #print("Var_x : ", var_x)
 
-        #theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
-        theta = tf.linspace(np.pi/2, np.pi/2, self.filters, axis=0)
+        theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
+        #theta = tf.linspace(np.pi/2, np.pi/2, self.filters, axis=0)
         #print(theta)
 
         #theta = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(self.filters), seed=self.seed)    
@@ -164,7 +164,7 @@ class GeometricInit3x3(Initializer):
         
         # Symetric initialization
 
-        std_s = (self.var_rs2/64)**(1/4)
+        std_s = (self.var_rs2/64)**(1/4) #((self.var_ra2 * 2.5)/64)**(1/4) 
         print("Var rs2:", self.var_rs2)
         a = tf.random.normal([1, self.channels, self.filters], stddev = std_s, dtype=tf.dtypes.float32, seed = self.seed)
         b = tf.random.normal([1, self.channels, self.filters], stddev = std_s,  dtype=tf.dtypes.float32, seed = self.seed)

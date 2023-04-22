@@ -1,9 +1,10 @@
 from skimage.filters import sobel_h
 from skimage.filters import sobel_v
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
-matplotlib.use('TKAgg')
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 import tensorflow as tf
 import time
 import io
@@ -69,7 +70,7 @@ class FLL(tf.keras.callbacks.Callback):
 
                 for i, channel in enumerate(channels):
                         
-                    f = weights.numpy()[:,:,:, filter]
+                    f = weights[:,:,:, filter]
                     f = np.array(f[:,:, channel])  
                     
                     theta = self.getSobelAngle(f)

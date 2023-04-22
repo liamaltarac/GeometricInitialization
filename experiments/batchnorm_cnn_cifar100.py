@@ -52,7 +52,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_Heuristic_batchnorm'
+    wandb.run.name = '8_layer_cnn_cifar100_Heuristic_batchnorm_forced_vrs2_p=0.7'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             ],
     )
     batch_size = 64
-    epochs = 10
+    epochs = 30
 
     layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
