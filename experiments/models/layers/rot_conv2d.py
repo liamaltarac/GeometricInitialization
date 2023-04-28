@@ -205,10 +205,10 @@ class RotConv2D(tf.keras.layers.Layer):
             #print(self.theta.shape, self.antisym_rotation.shape)
             theta = self.theta+self.antisym_rotation
 
-            a = tf.stop_gradient(-tf.math.sqrt(8.0)*tf.math.cos(theta - 9*m.pi/4))
-            b = tf.stop_gradient(-2*tf.math.sin(theta))
-            c = tf.stop_gradient(-tf.math.sqrt(8.0)*tf.math.sin(theta - 9*m.pi/4))
-            d = tf.stop_gradient(-2*tf.math.cos(theta))
+            a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*m.pi/4)
+            b = -2*tf.math.sin(theta)
+            c = -tf.math.sqrt(8.0)*tf.math.sin(theta - 9*m.pi/4)
+            d = -2*tf.math.cos(theta)
             
             self.asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
                             tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),

@@ -11,6 +11,7 @@ if __name__ == '__main__':
 
     from .models.batch_norm_rot import batchnorm_rot_cnn as cnn
     from .models.layers.rot_conv2d_callback import RotConv2DCallback
+    from .models.losses.output_entropy import entropy
 
     #from .models.no_batch_norm import no_batchnorm_cnn as cnn
 
@@ -84,9 +85,9 @@ if __name__ == '__main__':
         if l.__class__.__name__ == 'RotConv2D':
             l._train_r = True
             l._train_w = False
-            optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=0.005), l))
+            optimizers_and_layers.append((tf.keras.optimizers.SGD(learning_rate=5), l))
         else:
-            optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=0.005), l))
+            optimizers_and_layers.append((tf.keras.optimizers.SGD(learning_rate=1e-4), l))
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
     model.compile(
             optimizer=optimizer,
@@ -120,7 +121,7 @@ if __name__ == '__main__':
             l._train_w = True
             #optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=1e-4), l))
 
-    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-3)
+    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
