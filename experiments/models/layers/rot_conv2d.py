@@ -57,6 +57,9 @@ class RotConv2D(tf.keras.layers.Layer):
         self.theta = None
         self.ra = None
 
+        self._train_r = True
+        self._train_w = True
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -106,9 +109,9 @@ class RotConv2D(tf.keras.layers.Layer):
         self.var_ra2 = tfp.stats.variance(x**2 + y**2, None)
         self.var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
 
-        self.var_rs2 = self.var_rf2-self.var_ra2
+        self.var_rs2 = self.var_ra2 #self.var_rf2-
         self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
-        #print(var_ra2, var_rs2)
+        #print(self.var_ra2, self.var_rs2)
         return 6*var_x + (3-8/m.pi)*self.var_rs - 1/self.channels
 
     def get_weights(self):
@@ -118,7 +121,7 @@ class RotConv2D(tf.keras.layers.Layer):
         print(shape)
         self.channels = int(shape[-1])
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.7
+        self.rho = 0.5
 
         self.std_init = tf.math.sqrt(2/(self.channels*self.k**2))  #He
 
@@ -136,7 +139,7 @@ class RotConv2D(tf.keras.layers.Layer):
         self.var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/n])[0]
         
         self.antisym_rotation = tf.Variable(initial_value = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(1,1,self.filters), seed=self.seed),    
-                                            dtype='float32', trainable=True, name="antisym_rotation")
+                                            dtype='float32', trainable=self._train_r, name="antisym_rotation")
         
         self.cov = tf.stack([self.var_x,          self.rho*self.var_x,      
                         self.rho*self.var_x,          self.var_x ])
@@ -183,7 +186,8 @@ class RotConv2D(tf.keras.layers.Layer):
         self.sym_filters = tf.stack([tf.concat([a, b, a],  axis=0), 
                                      tf.concat([b, c, b], axis=0),
                                      tf.concat([a, b, a], axis=0)])
-        self.w = tf.Variable(initial_value=self.asym_filters + self.sym_filters,  trainable=False, name="weights")
+        
+        self.w = tf.Variable(initial_value=self.asym_filters + self.sym_filters,  trainable=self._train_w, name="weights")
 
         #Bias Initialization
         if self.use_bias:
@@ -196,25 +200,31 @@ class RotConv2D(tf.keras.layers.Layer):
     def call(self, inputs, training=None):
 
         #ra = tf.norm(self.antisym_dist, axis=-1)
-        print(self.theta.shape, self.antisym_rotation.shape)
-        theta = self.theta+self.antisym_rotation
 
-        a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*m.pi/4)
-        b = -2*tf.math.sin(theta)
-        c = -tf.math.sqrt(8.0)*tf.math.sin(theta - 9*m.pi/4)
-        d = -2*tf.math.cos(theta)
+        if self._train_r:
+            #print(self.theta.shape, self.antisym_rotation.shape)
+            theta = self.theta+self.antisym_rotation
+
+            a = tf.stop_gradient(-tf.math.sqrt(8.0)*tf.math.cos(theta - 9*m.pi/4))
+            b = tf.stop_gradient(-2*tf.math.sin(theta))
+            c = tf.stop_gradient(-tf.math.sqrt(8.0)*tf.math.sin(theta - 9*m.pi/4))
+            d = tf.stop_gradient(-2*tf.math.cos(theta))
+            
+            self.asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
+                            tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),
+                            tf.concat( [-c, -b, -a], axis=0)])
+                    
+            norm = tf.sqrt(tf.reduce_sum(tf.square(self.asym_filters), axis=[0,1]))  
+            self.asym_filters = tf.math.multiply((self.asym_filters / norm) , self.ra)
+
+
+            self.w.assign( self.asym_filters + self.sym_filters)
         
-        self.asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
-                        tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),
-                        tf.concat( [-c, -b, -a], axis=0)])
-                
-        norm = tf.sqrt(tf.reduce_sum(tf.square(self.asym_filters), axis=[0,1]))  
-        self.asym_filters = tf.math.multiply((self.asym_filters / norm) , self.ra)
-
-
-        self.w.assign( self.asym_filters + self.sym_filters)
-
-        x =  tf.nn.conv2d(inputs, self.asym_filters + self.sym_filters , strides=self.strides, 
+            x =  tf.nn.conv2d(inputs,  self.asym_filters + self.sym_filters , strides=self.strides, 
+                            padding=self.padding)
+        
+        else:        
+            x =  tf.nn.conv2d(inputs,  self.w , strides=self.strides, 
                           padding=self.padding)
 
         if self.use_bias:
@@ -224,4 +234,16 @@ class RotConv2D(tf.keras.layers.Layer):
             return  self.activation(x)  #self.activation(tf.math.add(x_a, x_s)) #, self.map
         else:
             return x
-        
+
+
+    '''@property
+    def train_r(self):
+        """ 'train_r' property."""
+        return self._train_r'''
+
+    '''@train_r.setter
+    def train_r(self, value):
+        self._train_r = value
+        self.antisym_rotation.trainable = self._train_r
+        self._train_w = not value
+        self.w.trainable = self._train_w'''

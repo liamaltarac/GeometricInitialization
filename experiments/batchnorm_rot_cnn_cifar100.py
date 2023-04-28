@@ -10,6 +10,8 @@ if __name__ == '__main__':
     sys.path.append("..")    
 
     from .models.batch_norm_rot import batchnorm_rot_cnn as cnn
+    from .models.layers.rot_conv2d_callback import RotConv2DCallback
+
     #from .models.no_batch_norm import no_batchnorm_cnn as cnn
 
     #from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
@@ -63,15 +65,29 @@ if __name__ == '__main__':
     "model": '8_layer_BatchNorm_Heuristic_Liam'
     }
 
-    optimizers = [
-    tf.keras.optimizers.RMSprop(learning_rate=1e-2),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-4)
-    ]
-    optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
-    
-    #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
 
+
+
+    #rot_conv_callback = RotConv2DCallback(model = model, rotation_epochs=1, rotation_lr=1)
+    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
+    
+    '''''''''
+
+    Stage 1 : Learning the rotation parameter
+
+    '''''''''
+    batch_size = 64
+    epochs = 1
+    optimizers_and_layers = [] #[(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
+    #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    for l in model.layers:
+        if l.__class__.__name__ == 'RotConv2D':
+            l._train_r = True
+            l._train_w = False
+            optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=0.005), l))
+        else:
+            optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=0.005), l))
+    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
@@ -80,16 +96,48 @@ if __name__ == '__main__':
                 keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
             ],
     )
-    batch_size = 64
-    epochs = 10
 
-    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={2: [1, 10, 100], 5: [1, 10, 100] })#, 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
                         callbacks=[WandbCallback() , layout_callback]) 
+    
+
+    '''''''''
+
+    Stage 2 : Learning the weights 
+
+    '''''''''
+    batch_size = 64
+    epochs = 63
+    optimizers_and_layers = [] #[(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
+    #
+    for l in model.layers:
+        if l.__class__.__name__ == 'RotConv2D':
+            l._train_r = False
+            l._train_w = True
+            #optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=1e-4), l))
+
+    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-3)
+    model.compile(
+            optimizer=optimizer,
+            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            metrics=[
+                keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+                keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
+            ],
+    )
+
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                              patience=5, min_lr=0.0, min_delta=0.01)
+    history = model.fit(X_train, 
+                        y_train, 
+                        batch_size=batch_size, 
+                        epochs=epochs, 
+                        validation_data=(X_validation, y_validation),
+                        callbacks=[WandbCallback() , layout_callback, reduce_lr])     
     
     wandb.finish()
 

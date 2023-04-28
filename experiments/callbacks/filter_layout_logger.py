@@ -17,6 +17,8 @@ class FLL(tf.keras.callbacks.Callback):
         self.model = model
         self.lfd = layer_filter_dict  # {0 : [1,2,3,5], 5: [10, 20] , ...}
         self.ft = file_type
+        self.epochs = int(wandb.config['epochs'])
+        self.cur_epoch = 0
 
     def get_filter(self, layer):
         layer = self.model.layers[layer]
@@ -64,6 +66,8 @@ class FLL(tf.keras.callbacks.Callback):
 
                 mags = []
                 anti_mags = []
+                sym_mags = []
+
                 sym_c = []
                 sym_b = []
                 f_vals = []
@@ -85,8 +89,11 @@ class FLL(tf.keras.callbacks.Callback):
                     anti_mag = np.linalg.norm(a) 
                     anti_mags.append(anti_mag)
 
+                    sym_mag = np.linalg.norm(s) 
+                    sym_mags.append(sym_mag)
 
-                fig, ax = plt.subplots(1,3)
+
+                fig, ax = plt.subplots(1,2)
                 fig.set_tight_layout(True)
 
                 x =anti_mags*np.cos((thetas))
@@ -105,13 +112,21 @@ class FLL(tf.keras.callbacks.Callback):
                 ax[1].set_box_aspect(1)
 
                 #Symetric Hist
-                ax[2].scatter(sym_b,sym_c)
-                lim_x = np.max(np.abs(sym_b))
-                lim_y = np.max(np.abs(sym_c))
-                lim = np.max([lim_x, lim_y])
-                ax[2].set_xlim(-lim, lim)
-                ax[2].set_ylim(-lim, lim)
-                ax[2].set_box_aspect(1)
+                '''x = np.linspace(0, self.cur_epoch)
+                
+                vra2, = ax[2].plot(self.cur_epoch, np.var(np.array(anti_mags)**2), 'b')
+                vrs2, =ax[2].plot(self.cur_epoch, np.var(np.array(sym_mags)**2),  'g')
+                vrf2, =ax[2].plot(self.cur_epoch, np.var(np.array(mags)**2) ,'r')
+                ax[2].legend([vra2, vrs2, vrf2], ['vra2', 'vrs2', 'vrf2'])
+
+                lim_x = self.epochs
+                #lim_y = np.max(np.abs(sym_c))
+                #lim = np.max([lim_x, lim_y])
+                ax[2].set_xlim(0, lim_x)
+                #ax[2].set_ylim(-lim, lim)
+                ax[2].set_box_aspect(1)'''
+                
+                
                 buf = io.BytesIO()
 
                 plt.savefig(buf, format=self.ft)
@@ -123,3 +138,4 @@ class FLL(tf.keras.callbacks.Callback):
                 self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image(im)})
 
                 buf.close()
+        self.cur_epoch+=1

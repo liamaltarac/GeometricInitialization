@@ -42,6 +42,7 @@ if __name__ == '__main__':
     train_datagen = ImageDataGenerator(
         rotation_range=20,
         horizontal_flip=True,
+        #featurewise_center = True
     )
 
     X_train, X_validation, y_train, y_validation = train_test_split(x_train, y_train, test_size=0.2, random_state=93)
@@ -52,18 +53,18 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_Heuristic_batchnorm_forced_vrs2_p=0.7'
+    wandb.run.name = '8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
-    'epochs' : '10',
+    'epochs' : '30',
     "initialization": 'geo heuristic init l',
     "model": '8_layer_BatchNorm_Heuristic_Liam'
     }
 
     '''optimizers = [
-    tf.keras.optimizers.RMSprop(learning_rate=1e-6),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-3)
+    tf.keras.optimizers.RMSprop(learning_rate=5e-5),
+    tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     ]
     optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
@@ -79,7 +80,10 @@ if __name__ == '__main__':
             ],
     )
     batch_size = 64
-    epochs = 30
+    epochs = 50
+
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
+                              patience=5, min_lr=1e-6, min_delta=0.03)
 
     layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
@@ -87,7 +91,7 @@ if __name__ == '__main__':
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback(), layout_callback]) 
+                        callbacks=[WandbCallback(), reduce_lr, layout_callback]) 
     
     wandb.finish()
 

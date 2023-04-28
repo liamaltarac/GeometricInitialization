@@ -63,12 +63,12 @@ class GeometricInit3x3(Initializer):
         x = dist[:, 0, :]
         y = dist[:, 1, :]
 
-        self.var_rf2 = 1.1922e-5 #18*self.std_init**4
+        self.var_rf2 = 18*self.std_init**4
 
         self.var_ra2 = tfp.stats.variance(x**2 + y**2, None)
         self.var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
 
-        self.var_rs2 = self.var_rf2-self.var_ra2
+        self.var_rs2 = self.var_ra2 #self.var_rf2-
         self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
         print(self.var_ra2, self.var_rs2)
         return 6*var_x + (3-8/m.pi)*self.var_rs - 1/self.channels
@@ -81,7 +81,7 @@ class GeometricInit3x3(Initializer):
         self.n_avg = (self.channels+self.filters)/2.0
         self.rho = 0.7
 
-        self.std_init = tf.math.sqrt(1/(self.n_avg*self.k**2))  #Glorot
+        self.std_init = 100 #tf.math.sqrt(1/(self.n_avg*self.k**2))  #He  #tf.math.sqrt(1/(self.n_avg*self.k**2))  #Glorot
 
         n = tf.cast(self.channels, dtype=tf.float32)
         p = tf.cast(self.rho, dtype=tf.float32)
