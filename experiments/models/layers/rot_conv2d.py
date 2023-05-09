@@ -117,6 +117,11 @@ class RotConv2D(tf.keras.layers.Layer):
     def get_weights(self):
         return self.w, self.bias
     
+    def _entropy(self, y_pred):
+        l =  -tf.math.reduce_sum(tf.math.multiply(y_pred, tf.math.log(tf.clip_by_value(y_pred,1e-10,1.0))))
+        #print(l)
+        return(l)
+    
     def build(self, shape):
         print(shape)
         self.channels = int(shape[-1])
@@ -222,6 +227,8 @@ class RotConv2D(tf.keras.layers.Layer):
         
             x =  tf.nn.conv2d(inputs,  self.asym_filters + self.sym_filters , strides=self.strides, 
                             padding=self.padding)
+            #self.add_loss(self._entropy(x))
+
         
         else:        
             x =  tf.nn.conv2d(inputs,  self.w , strides=self.strides, 

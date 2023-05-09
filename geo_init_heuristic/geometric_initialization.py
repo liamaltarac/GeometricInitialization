@@ -28,7 +28,8 @@ class GeometricInit3x3(Initializer):
 
         self.var_rs2 = None
         self.var_rs = None
-
+        self.e2_rs = None
+        self.var_s = None
         #np.random.seed(self.seed)
         tf.random.set_seed(self.seed)
 
@@ -63,15 +64,18 @@ class GeometricInit3x3(Initializer):
         x = dist[:, 0, :]
         y = dist[:, 1, :]
 
-        self.var_rf2 = 18*self.std_init**4
+        #self.var_rf2 = 18*self.std_init**4
 
         self.var_ra2 = tfp.stats.variance(x**2 + y**2, None)
         self.var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
 
         self.var_rs2 = self.var_ra2 #self.var_rf2-
         self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
+        self.var_s = tf.math.sqrt(self.var_rs2/66)
+        self.e2_rs = 9*self.var_s - self.var_rs
+
         print(self.var_ra2, self.var_rs2)
-        return 6*var_x + (3-8/m.pi)*self.var_rs - 1/self.channels
+        return 3*m.pi*(var_x +var_x +self.var_rs) + self.e2_rs*(3*m.pi-8) - m.pi/(self.channels*0.5)
 
 
     def __call__(self, shape, dtype=None, **kwargs):
@@ -79,8 +83,7 @@ class GeometricInit3x3(Initializer):
         self.filters = int(shape[-1])
         self.k = shape[0]        
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.7
-
+        self.rho = 0.5
         self.std_init = 100 #tf.math.sqrt(1/(self.n_avg*self.k**2))  #He  #tf.math.sqrt(1/(self.n_avg*self.k**2))  #Glorot
 
         n = tf.cast(self.channels, dtype=tf.float32)
@@ -164,11 +167,21 @@ class GeometricInit3x3(Initializer):
         
         # Symetric initialization
 
-        std_s = (self.var_rs2/64)**(1/4) #((self.var_ra2 * 2.5)/64)**(1/4) 
+        #std_s = (self.var_rs2/64)**(1/4) #((self.var_ra2 * 2.5)/64)**(1/4) 
+        #std_c = #(self.var_rs2/6)**(1/4) #((self.var_ra2 * 2.5)/64)**(1/4) 
+        #std_a = #tf.math.sqrt((std_c**2) /4)
+        #std_b = #std_a
+        #print("VAR_C", std_c**2)
         print("Var rs2:", self.var_rs2)
-        a = tf.random.normal([1, self.channels, self.filters], stddev = std_s, dtype=tf.dtypes.float32, seed = self.seed)
-        b = tf.random.normal([1, self.channels, self.filters], stddev = std_s,  dtype=tf.dtypes.float32, seed = self.seed)
-        c = tf.random.normal([1, self.channels, self.filters], stddev = std_s,  dtype=tf.dtypes.float32, seed = self.seed)
+        print("E(rs)2:", self.e2_rs)
+
+        #print("Var rs2 check :", 2*std_c**4 + 2*std_a**4 + 32*var_b**2)
+
+        print("Var ra2:", self.var_ra2)
+
+        a = tf.random.normal([1, self.channels, self.filters], stddev = tf.math.sqrt(self.var_s), dtype=tf.dtypes.float32, seed = self.seed)
+        b = tf.random.normal([1, self.channels, self.filters], stddev = tf.math.sqrt(self.var_s),  dtype=tf.dtypes.float32, seed = self.seed)
+        c = tf.random.normal([1, self.channels, self.filters], stddev = tf.math.sqrt(self.var_s),  dtype=tf.dtypes.float32, seed = self.seed)
 
         sym_filters = tf.stack([tf.concat([a, b, a],  axis=0), 
                                 tf.concat([b, c, b], axis=0),
@@ -265,4 +278,6 @@ if __name__ == "__main__":
     print('v_r2: ',np.var(np.array(mags)**2))
     print('v_ra2: ',np.var(np.array(anti_mags)**2))
     print('v_rs2: ',np.var(np.array(sym_mags)**2))
+    print('E2_rs: ',np.mean(np.array(sym_mags))**2)
+
     print('var_init: ',np.var(np.array(f_vals)))

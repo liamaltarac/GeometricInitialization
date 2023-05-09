@@ -1,8 +1,19 @@
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow_addons as tfa
+from tensorflow.keras.initializers import RandomNormal, Constant, HeNormal, GlorotNormal
 
 import sys
+
+class LRLogger(tf.keras.callbacks.Callback):
+    def __init__(self, optimizer):
+      super(LRLogger, self).__init__()
+      self.optimizer = optimizer
+
+    def on_epoch_end(self, epoch, logs):
+      lr = self.optimizer.learning_rate(self.optimizer.iterations)
+      wandb.log({"lr": lr}, commit=False)
+
 
 if __name__ == '__main__':
 
@@ -45,7 +56,7 @@ if __name__ == '__main__':
         #featurewise_center = True
     )
 
-    X_train, X_validation, y_train, y_validation = train_test_split(x_train, y_train, test_size=0.2, random_state=93)
+    X_train, X_validation, y_train, y_validation = train_test_split(x_train, y_train, test_size=0.3, random_state=93)
     train_datagen.fit(X_train)
 
 
@@ -53,7 +64,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
+    wandb.run.name = '8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
@@ -69,8 +80,18 @@ if __name__ == '__main__':
     optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
     
-    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    #lr = 1e-4
 
+    optimizer = tf.keras.optimizers.RMSprop(tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+                                                boundaries=[10*len(X_train)//64, 20*len(X_train)//64], 
+                                                values=[1e-4, 1e-5, 1e-6]
+                                            ))
+    def get_lr_metric(optimizer):
+        def lr(y_true, y_pred):
+            return optimizer.lr
+        return lr
+
+    lr_metric = get_lr_metric(optimizer)
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
@@ -80,10 +101,12 @@ if __name__ == '__main__':
             ],
     )
     batch_size = 64
-    epochs = 50
+    epochs = 30
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                               patience=5, min_lr=1e-6, min_delta=0.03)
+
+    #lr_callback = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose=True)
 
     layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
     history = model.fit(X_train, 
@@ -91,7 +114,7 @@ if __name__ == '__main__':
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback(), reduce_lr, layout_callback]) 
+                        callbacks=[WandbCallback(), layout_callback, LRLogger(optimizer)]) 
     
     wandb.finish()
 

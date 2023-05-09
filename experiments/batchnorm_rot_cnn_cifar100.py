@@ -85,13 +85,13 @@ if __name__ == '__main__':
         if l.__class__.__name__ == 'RotConv2D':
             l._train_r = True
             l._train_w = False
-            optimizers_and_layers.append((tf.keras.optimizers.SGD(learning_rate=5), l))
+            optimizers_and_layers.append((tf.keras.optimizers.SGD(learning_rate=1), l))
         else:
-            optimizers_and_layers.append((tf.keras.optimizers.SGD(learning_rate=1e-4), l))
+            optimizers_and_layers.append((None, l))
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
     model.compile(
             optimizer=optimizer,
-            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            loss = entropy, #( None , keras.losses.SparseCategoricalCrossentropy(from_logits=False)),
             metrics=[
                 keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
                 keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
