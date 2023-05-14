@@ -101,11 +101,17 @@ class GeometricInit3x3(Initializer):
 
         self.antisym_dist =  tf.reshape(self.antisym_dist, (-1, 2, self.channels*self.filters))
 
-        var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/n])[0]
+        var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[2*m.pi/n])[0]
 
         #print("Var_x : ", var_x)
 
+       
         theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=8).sample(sample_shape=(self.filters), seed=self.seed) )/8
+        
+        
+        #theta = 2*np.pi*tf.math.ceil(tfp.distributions.Uniform(low=0, high=1).sample(sample_shape=(self.filters), seed=self.seed) )
+
+        
         #theta = tf.linspace(np.pi/2, np.pi/2, self.filters, axis=0)
         #print(theta)
 

@@ -12,6 +12,7 @@ if __name__ == '__main__':
     from .models.batch_norm_rot import batchnorm_rot_cnn as cnn
     from .models.layers.rot_conv2d_callback import RotConv2DCallback
     from .models.losses.output_entropy import entropy
+    from .models.losses.variance_loss import var_loss
 
     #from .models.no_batch_norm import no_batchnorm_cnn as cnn
 
@@ -77,33 +78,30 @@ if __name__ == '__main__':
     Stage 1 : Learning the rotation parameter
 
     '''''''''
-    batch_size = 64
-    epochs = 1
+    batch_size = 256
+    epochs = 3
     optimizers_and_layers = [] #[(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
     #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     for l in model.layers:
         if l.__class__.__name__ == 'RotConv2D':
             l._train_r = True
             l._train_w = False
-            optimizers_and_layers.append((tf.keras.optimizers.SGD(learning_rate=1), l))
-        else:
-            optimizers_and_layers.append((None, l))
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
+        if  l.__class__.__name__ == 'Dense':
+            l.trainable = False
+
+
+    optimizer = tf.keras.optimizers.RMSprop(0.5)
+    
     model.compile(
             optimizer=optimizer,
-            loss = entropy, #( None , keras.losses.SparseCategoricalCrossentropy(from_logits=False)),
-            metrics=[
-                keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
-                keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
-            ],
+            loss =  var_loss,  #keras.losses.SparseCategoricalCrossentropy(from_logits=False),
     )
 
     history = model.fit(X_train, 
-                        y_train, 
+                        X_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
-                        validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback() , layout_callback]) 
+                        callbacks=[WandbCallback(), layout_callback]) 
     
 
     '''''''''
@@ -119,8 +117,8 @@ if __name__ == '__main__':
         if l.__class__.__name__ == 'RotConv2D':
             l._train_r = False
             l._train_w = True
-            #optimizers_and_layers.append((tf.keras.optimizers.RMSprop(learning_rate=1e-4), l))
-
+        if  l.__class__.__name__ == 'Dense':
+            l.trainable = True
     optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     model.compile(
             optimizer=optimizer,

@@ -64,7 +64,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
+    wandb.run.name = '8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule_2stage' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
@@ -73,25 +73,30 @@ if __name__ == '__main__':
     "model": '8_layer_BatchNorm_Heuristic_Liam'
     }
 
-    '''optimizers = [
-    tf.keras.optimizers.RMSprop(learning_rate=5e-5),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-4)
-    ]
-    optimizers_and_layers = [(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
-    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)'''
-    
-    #lr = 1e-4
 
-    optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.PiecewiseConstantDecay(
-                                                boundaries=[20*len(X_train)//64, 40*len(X_train)//64], 
-                                                values=[1e-3, 1e-4, 1e-5]
-                                            ))
     def get_lr_metric(optimizer):
         def lr(y_true, y_pred):
             return optimizer.lr
         return lr
 
-    lr_metric = get_lr_metric(optimizer)
+    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
+
+    '''''''''
+
+    Stage 1 : Learning the MLP
+
+    '''''''''
+    batch_size = 64
+    epochs = 1
+    #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    for l in model.layers:
+        if l.__class__.__name__ == 'Conv2D':
+            l.trainable=False
+
+    optimizer = tf.keras.optimizers.RMSprop(tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+                                                boundaries=[1*len(X_train)//64], 
+                                                values=[1e-3, 1e-4]
+                                            ))    
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
@@ -100,31 +105,44 @@ if __name__ == '__main__':
                 keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
             ],
     )
-    batch_size = 64
-    epochs = 50
-
-    print(model.summary())
-
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
-                              patience=5, min_lr=1e-6, min_delta=0.03)
-
-    #lr_callback = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose=True)
-
-    
-    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 6: [1, 10, 100], 9: [1, 10, 100], 13: [1, 10, 100]})
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback(), layout_callback, LRLogger(optimizer)]) 
+                        callbacks=[WandbCallback() , layout_callback, LRLogger(optimizer)]) 
+    
+
+    '''''''''
+
+    Stage 2 : Learning the CNN + MLP 
+
+    '''''''''
+    batch_size = 64
+    epochs = 20
+    #
+    for l in model.layers:
+        if l.__class__.__name__ == 'Conv2D':
+            l.trainable = True
+
+    optimizer = tf.keras.optimizers.RMSprop(tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+                                                boundaries=[5*len(X_train)//64, 10*len(X_train)//64], 
+                                                values=[5e-4, 5e-5, 5e-6]
+                                            ))
+    model.compile(
+            optimizer=optimizer,
+            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            metrics=[
+                keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+                keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
+            ],
+    )
+
+    history = model.fit(X_train, 
+                        y_train, 
+                        batch_size=batch_size, 
+                        epochs=epochs, 
+                        validation_data=(X_validation, y_validation),
+                        callbacks=[WandbCallback() , layout_callback, LRLogger(optimizer)]) 
     
     wandb.finish()
-
-    '''log_gradients   = (True), 
-    log_weights     = (True),
-    training_data   = (X_train, y_train),
-    validation_data = (X_validation, y_validation)
-    input_type = "images",
-    output_type = "label",
-    )])'''

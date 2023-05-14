@@ -93,8 +93,6 @@ class RotConv2D(tf.keras.layers.Layer):
 
     def _objective(self, var_x):
 
-
-        #input x : var(x)
         #Calculate the "colored" antisymetric distribution
         cov = tf.stack([var_x, self.rho*tf.math.sqrt(var_x*var_x),      
                         self.rho*tf.math.sqrt(var_x*var_x),  var_x ])
@@ -104,15 +102,18 @@ class RotConv2D(tf.keras.layers.Layer):
         x = dist[:, 0, :]
         y = dist[:, 1, :]
 
-        self.var_rf2 = 18*self.std_init**4
+        #self.var_rf2 = 18*self.std_init**4
 
         self.var_ra2 = tfp.stats.variance(x**2 + y**2, None)
         self.var_ra = tfp.stats.variance(tf.math.sqrt(x**2 + y**2), None)
 
         self.var_rs2 = self.var_ra2 #self.var_rf2-
         self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
-        #print(self.var_ra2, self.var_rs2)
-        return 6*var_x + (3-8/m.pi)*self.var_rs - 1/self.channels
+        self.var_s = tf.math.sqrt(self.var_rs2/66)
+        self.e2_rs = 9*self.var_s - self.var_rs
+
+        print(self.var_ra2, self.var_rs2)
+        return 3*m.pi*(var_x +var_x +self.var_rs) + self.e2_rs*(3*m.pi-8) - m.pi/(self.channels*0.5)
 
     def get_weights(self):
         return self.w, self.bias
@@ -143,7 +144,7 @@ class RotConv2D(tf.keras.layers.Layer):
         self.antisym_dist =  tf.reshape(self.antisym_dist, (-1, 2, self.channels*self.filters))
         self.var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/n])[0]
         
-        self.antisym_rotation = tf.Variable(initial_value = tfp.distributions.Uniform(low=0, high=2*m.pi).sample(sample_shape=(1,1,self.filters), seed=self.seed),    
+        self.antisym_rotation = tf.Variable(initial_value = tfp.distributions.Uniform(0, 2*m.pi).sample(sample_shape=(1,1,self.filters), seed=self.seed),    
                                             dtype='float32', trainable=self._train_r, name="antisym_rotation")
         
         self.cov = tf.stack([self.var_x,          self.rho*self.var_x,      
@@ -205,7 +206,6 @@ class RotConv2D(tf.keras.layers.Layer):
     def call(self, inputs, training=None):
 
         #ra = tf.norm(self.antisym_dist, axis=-1)
-
         if self._train_r:
             #print(self.theta.shape, self.antisym_rotation.shape)
             theta = self.theta+self.antisym_rotation
@@ -227,6 +227,14 @@ class RotConv2D(tf.keras.layers.Layer):
         
             x =  tf.nn.conv2d(inputs,  self.asym_filters + self.sym_filters , strides=self.strides, 
                             padding=self.padding)
+            
+            if self.use_bias:
+                x = x+self.bias
+
+            if self.activation :
+                x = self.activation(x)  #self.activation(tf.math.add(x_a, x_s)) #, self.map
+            #self.add_loss(tf.math.abs(tf.math.reduce_variance(x) - tf.math.reduce_variance(inputs)))
+            return x
             #self.add_loss(self._entropy(x))
 
         
@@ -238,9 +246,9 @@ class RotConv2D(tf.keras.layers.Layer):
             x = x+self.bias
 
         if self.activation :
-            return  self.activation(x)  #self.activation(tf.math.add(x_a, x_s)) #, self.map
-        else:
-            return x
+            x = self.activation(x)  #self.activation(tf.math.add(x_a, x_s)) #, self.map
+
+        return x
 
 
     '''@property
