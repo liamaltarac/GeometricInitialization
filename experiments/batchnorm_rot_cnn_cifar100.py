@@ -1,8 +1,68 @@
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow_addons as tfa
-
+import numpy as np
 import sys
+
+def cluster_distance_2(y_true, y_pred):
+    #tf.print(y_true)
+    #tf.print(y_pred.shape)
+    #norms = tf.zeros([0, 1])
+    #centroids = tf.zeros([0, 100])
+
+    def body(i, label, centroids):
+        #Find all latent codes in batch belonging a specific class
+        idx = tf.where(y_true == [label])[:,0]
+        #tf.print(label)
+        if tf.equal(tf.size(idx), 0) == False:
+            #tf.print(idx)
+            gathered_vectors = tf.gather(y_pred,  idx)
+            #tf.print(gathered_vectors,summarize=100 )
+            centroid = tf.reduce_mean(gathered_vectors, axis=0)
+            #tf.print(centroid,summarize=20 )
+
+            centroids = centroids.write(i, tf.transpose(centroid))
+        
+
+            i+=1
+        label += 1
+        return i, label, centroids
+
+    centroids = tf.TensorArray(dtype=tf.float32, infer_shape=False, size=0, 
+                        dynamic_size=True) 
+    
+    _, _, centroids = tf.while_loop(lambda i, label, *_: tf.less(label, 100), body,[0,0,centroids] ,parallel_iterations=10)
+
+    centroid_mat = centroids.stack()
+    #tf.print(centroid_mat,summarize=20 )
+
+    #tf.print(centroid_mat,summarize=100 )
+
+    #tf.io.write_file("Math_Experiments/dot.csv", tf.strings.as_string(centroid_mat))
+
+    r = tf.reduce_sum(centroid_mat*centroid_mat, 1)
+    #tf.print(r)
+    # turn r into column vector
+    N  =  tf.cast(100, dtype=tf.float32)
+    #tf.print(N)
+    r = tf.reshape(r, [1, -1])
+    D = tf.cast(r - 2*tf.linalg.matmul(centroid_mat, centroid_mat, transpose_b=True) + tf.transpose(r), tf.float32)
+    #tf.print(r)
+
+    centroids.close()
+
+    #
+    #tf.print(tf.reduce_sum(D, axis=1),summarize=100 )
+
+    #tf.print(norms)
+
+    #tf.print(tf.linalg.matmul(centroid_mat, centroid_mat, transpose_b=True))
+    '''tf.print(2*np.math.factorial(N)/(2*np.math.factorial((N-2))))
+    tf.print(N)
+    '''
+    #tf.print((tf.reduce_sum(D)/(2*np.math.factorial(N)/(2*np.math.factorial((N-2))))))
+
+    return( -(tf.reduce_sum(D, axis=1)/N))
 
 if __name__ == '__main__':
 
@@ -78,7 +138,7 @@ if __name__ == '__main__':
     Stage 1 : Learning the rotation parameter
 
     '''''''''
-    batch_size = 256
+    batch_size = 500
     epochs = 3
     optimizers_and_layers = [] #[(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
     #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
@@ -94,11 +154,11 @@ if __name__ == '__main__':
     
     model.compile(
             optimizer=optimizer,
-            loss =  var_loss,  #keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            loss =  cluster_distance_2,  #keras.losses.SparseCategoricalCrossentropy(from_logits=False),
     )
 
     history = model.fit(X_train, 
-                        X_train, 
+                        y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         callbacks=[WandbCallback(), layout_callback]) 
@@ -119,7 +179,7 @@ if __name__ == '__main__':
             l._train_w = True
         if  l.__class__.__name__ == 'Dense':
             l.trainable = True
-    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-3)
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
