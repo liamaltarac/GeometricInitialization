@@ -31,7 +31,7 @@ def cluster_distance_2(y_true, y_pred):
     centroids = tf.TensorArray(dtype=tf.float32, infer_shape=False, size=0, 
                         dynamic_size=True) 
     
-    _, _, centroids = tf.while_loop(lambda i, label, *_: tf.less(label, 100), body,[0,0,centroids] ,parallel_iterations=10)
+    i, _, centroids = tf.while_loop(lambda i, label, *_: tf.less(label, 100), body,[0,0,centroids] ,parallel_iterations=10)
 
     centroid_mat = centroids.stack()
     #tf.print(centroid_mat,summarize=20 )
@@ -43,16 +43,17 @@ def cluster_distance_2(y_true, y_pred):
     r = tf.reduce_sum(centroid_mat*centroid_mat, 1)
     #tf.print(r)
     # turn r into column vector
-    N  =  tf.cast(100, dtype=tf.float32)
-    #tf.print(N)
+    #tf.print("I type :" , type(i))
+    N  = tf.cast(i, dtype=tf.float32)
+    #tf.print("N = ", type(i))
     r = tf.reshape(r, [1, -1])
-    D = tf.cast(r - 2*tf.linalg.matmul(centroid_mat, centroid_mat, transpose_b=True) + tf.transpose(r), tf.float32)
+    D = r - 2*tf.linalg.matmul(centroid_mat, centroid_mat, transpose_b=True) + tf.transpose(r)
     #tf.print(r)
-
+    
     centroids.close()
 
     #
-    #tf.print(tf.reduce_sum(D, axis=1),summarize=100 )
+    #tf.print(D, summarize=100 )
 
     #tf.print(norms)
 
@@ -60,9 +61,13 @@ def cluster_distance_2(y_true, y_pred):
     '''tf.print(2*np.math.factorial(N)/(2*np.math.factorial((N-2))))
     tf.print(N)
     '''
-    #tf.print((tf.reduce_sum(D)/(2*np.math.factorial(N)/(2*np.math.factorial((N-2))))))
 
-    return( -(tf.reduce_sum(D, axis=1)/N))
+
+    #tf.print(2*factorial(N)/(2*factorial((N-2))))
+
+    factorial = lambda x : tf.math.exp(tf.math.lgamma(x + 1))
+
+    return( -(tf.reduce_sum(D) /(2*factorial(N)/(2*factorial((N-2))))))
 
 if __name__ == '__main__':
 
@@ -138,29 +143,34 @@ if __name__ == '__main__':
     Stage 1 : Learning the rotation parameter
 
     '''''''''
-    batch_size = 500
-    epochs = 3
+    batch_size = 256
+    epochs = 2
     optimizers_and_layers = [] #[(optimizers[0], model.layers[:-6]), (optimizers[1], model.layers[-6:])]
     #optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-4)
     for l in model.layers:
         if l.__class__.__name__ == 'RotConv2D':
             l._train_r = True
             l._train_w = False
-        if  l.__class__.__name__ == 'Dense':
-            l.trainable = False
+        #if  l.__class__.__name__ == 'Dense':
+        #    l.trainable = False
 
 
-    optimizer = tf.keras.optimizers.RMSprop(0.5)
+    optimizer = tf.keras.optimizers.RMSprop(0.05)
     
     model.compile(
             optimizer=optimizer,
-            loss =  cluster_distance_2,  #keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            loss =  keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            metrics=[
+                keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+                keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
+            ],
     )
 
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
+                        validation_data=(X_validation, y_validation),
                         callbacks=[WandbCallback(), layout_callback]) 
     
 
@@ -179,7 +189,7 @@ if __name__ == '__main__':
             l._train_w = True
         if  l.__class__.__name__ == 'Dense':
             l.trainable = True
-    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-3)
+    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-5)
     model.compile(
             optimizer=optimizer,
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
@@ -196,7 +206,7 @@ if __name__ == '__main__':
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback() , layout_callback, reduce_lr])     
+                        callbacks=[WandbCallback() , layout_callback])     
     
     wandb.finish()
 
