@@ -95,7 +95,7 @@ if __name__ == '__main__':
             l._train_w = False
         if  l.__class__.__name__ == 'Dense':
             l.trainable = True
-    optimizer = tf.keras.optimizers.RMSprop(learning_rate=1e-2)
+    optimizer = tf.keras.optimizers.RMSprop(learning_rate=5e-1)
     model.compile(
             optimizer=optimizer,
             loss='mse',

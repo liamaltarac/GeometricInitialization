@@ -14,52 +14,53 @@ from keras.layers.core import Dense,Activation,Dropout,Flatten
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
 from tensorflow.keras.initializers import RandomNormal, Constant, HeNormal
 from .layers.rot_conv2d import RotConv2D
-def batchnorm_rot_cnn():
+def batchnorm_cnn(k_init = 'he_normal'):
 
     input_layer=Input(shape=(32,32,3))
-    x=RotConv2D(256,padding='SAME')(input_layer)
+    x=Conv2D(256,(3,3),padding='same', kernel_initializer = k_init)(input_layer)
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-    x=RotConv2D(256,padding='SAME')(x) #3
+    x=Conv2D(256,(3,3),padding='same', kernel_initializer = k_init)(x) #3
     x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x)  #16x16
     x=Dropout(0.2)(x)
         
-    x=RotConv2D(512,padding='SAME')(x) #6
+    x=Conv2D(512,(3,3),padding='same', kernel_initializer = k_init)(x) #6
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-    x=RotConv2D(512,padding='SAME')(x) #9
+    x=Conv2D(512,(3,3),padding='same', kernel_initializer = k_init)(x) #9
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x)  #8x8
     x=Dropout(0.2)(x)
 
-    x=RotConv2D(512,padding='SAME')(x) #13
+    x=Conv2D(512,(3,3),padding='same', kernel_initializer = k_init)(x) #13
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-    x=RotConv2D(512,padding='SAME')(x)
+    x=Conv2D(512,(3,3),padding='same', kernel_initializer = k_init)(x)
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x) #4x4
     x=Dropout(0.2)(x)
 
-    x=RotConv2D(512,padding='SAME')(x)
+    x=Conv2D(512,(3,3),padding='same', kernel_initializer = k_init)(x)
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-    x=RotConv2D(512,padding='SAME')(x)
+    x=Conv2D(512,(3,3),padding='same', kernel_initializer = k_init)(x)
 
 
 
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x)  #2x2x512
-    x = Dropout(0.2)(x)
-
+    
     feature_layer= AveragePooling2D(pool_size=(2, 2), name='avg_pool')(x)
     #feature_layer= MaxPool1D(pool_size=4, name='maxpool1D')(feature_layer)
-    feature_layer= Activation('softmax')(feature_layer/0.5)
+
+    #feature_layer= Activation('softmax')(feature_layer/2)
 
 
+    x = Dropout(0.2)(x)
 
 
 

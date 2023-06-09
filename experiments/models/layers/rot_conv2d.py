@@ -9,7 +9,6 @@ from tensorflow.keras.layers import Input, Concatenate , Add, Dot, Activation, L
 from tensorflow.compat.v2.math import mod
 import tensorflow_probability as tfp
 import math as m
-
 import sys 
 
 class RotConv2D(tf.keras.layers.Layer):
@@ -59,6 +58,7 @@ class RotConv2D(tf.keras.layers.Layer):
 
         self._train_r = True
         self._train_w = True
+
 
     def get_config(self):
         config = super().get_config()
@@ -127,7 +127,7 @@ class RotConv2D(tf.keras.layers.Layer):
         print(shape)
         self.channels = int(shape[-1])
         self.n_avg = (self.channels+self.filters)/2.0
-        self.rho = 0.5
+        self.rho = 0.7
 
         self.std_init = tf.math.sqrt(2/(self.channels*self.k**2))  #He
 
@@ -144,8 +144,7 @@ class RotConv2D(tf.keras.layers.Layer):
         self.antisym_dist =  tf.reshape(self.antisym_dist, (-1, 2, self.channels*self.filters))
         self.var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[1/n])[0]
         
-        self.antisym_rotation = tf.Variable(initial_value = tfp.distributions.Uniform(0, 2*m.pi).sample(sample_shape=(1,1,self.filters), seed=self.seed),    
-                                            dtype='float32', trainable=self._train_r, name="antisym_rotation")
+        antisym_rotation = tfp.distributions.Uniform(0, 2*m.pi).sample(sample_shape=(1,1,self.filters), seed=self.seed)
         
         self.cov = tf.stack([self.var_x,          self.rho*self.var_x,      
                         self.rho*self.var_x,          self.var_x ])
@@ -165,13 +164,23 @@ class RotConv2D(tf.keras.layers.Layer):
         x, y = self.antisym_dist[0,:,:,0], self.antisym_dist[0,:,:,1]
 
         self.ra = tf.math.sqrt(x**2 + y**2)
-        self.theta = tf.expand_dims(tf.math.atan2(y, x), axis=0) 
-        theta = self.theta +  self.antisym_rotation
+        theta  = tf.expand_dims(tf.math.atan2(y, x), axis=0)
 
-        a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*m.pi/4)
-        b = -2*tf.math.sin(theta)
-        c = -tf.math.sqrt(8.0)*tf.math.sin(theta - 9*m.pi/4)
-        d = -2*tf.math.cos(theta)
+        
+        self.antisym_rotation = tf.Variable(initial_value = antisym_rotation + theta,    
+                                       dtype='float32', trainable=self._train_r, 
+                                       constraint= lambda z: tf.clip_by_value(z, 0, 2*m.pi),
+                                       name="antisym_rotation")
+        
+
+
+
+        #theta = self.theta +  self.antisym_rotation
+
+        a = -tf.math.sqrt(8.0)*tf.math.cos(self.antisym_rotation - 9*m.pi/4)
+        b = -2*tf.math.sin(self.antisym_rotation)
+        c = -tf.math.sqrt(8.0)*tf.math.sin(self.antisym_rotation - 9*m.pi/4)
+        d = -2*tf.math.cos(self.antisym_rotation)
         
         self.asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
                         tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),
@@ -208,7 +217,8 @@ class RotConv2D(tf.keras.layers.Layer):
         #ra = tf.norm(self.antisym_dist, axis=-1)
         if self._train_r:
             #print(self.theta.shape, self.antisym_rotation.shape)
-            theta = self.theta+self.antisym_rotation
+            
+            theta = self.antisym_rotation
 
             a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*m.pi/4)
             b = -2*tf.math.sin(theta)
@@ -233,7 +243,7 @@ class RotConv2D(tf.keras.layers.Layer):
 
             if self.activation :
                 x = self.activation(x)  #self.activation(tf.math.add(x_a, x_s)) #, self.map
-            #self.add_loss(tf.math.abs(tf.math.reduce_variance(x) - tf.math.reduce_variance(inputs)))
+            #self.add_loss(mio.maximize)
             return x
             #self.add_loss(self._entropy(x))
 
