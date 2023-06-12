@@ -51,13 +51,14 @@ def batchnorm_rot_cnn():
 
 
     x=BatchNormalization()(x)
-    x=Activation('relu')(x)
+    #x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x)  #2x2x512
     x = Dropout(0.2)(x)
 
     feature_layer= AveragePooling2D(pool_size=(2, 2), name='avg_pool')(x)
+    #feature_layer = Dropout(0.2)(feature_layer)
     #feature_layer= MaxPool1D(pool_size=4, name='maxpool1D')(feature_layer)
-    feature_layer= Activation('softmax')(feature_layer/0.5)
+    feature_layer= Activation('softmax')(feature_layer/0.01)
 
 
 

@@ -6,6 +6,7 @@ import tensorflow_addons as tfa
 import numpy as np
 import sys
 from tensorflow.keras.losses import Loss
+import os
 
 class Mutual_Information_Objective(Loss):
     def __init__(self, num_features, num_classes=10, conv_features=True):
@@ -230,7 +231,7 @@ if __name__ == '__main__':
             alpha=final_learning_rate,
             )
     
-    optimizer =     tf.keras.optimizers.RMSprop(1e-2) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
+    optimizer =     tf.keras.optimizers.RMSprop(1e-4) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
 
 
     objective = Mutual_Information_Objective(512, num_classes= 100, conv_features=True)
@@ -248,14 +249,23 @@ if __name__ == '__main__':
     plt.savefig("my_conf_mat_before.png")'''
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
 
+    checkpoint_path = "training_1/cp.ckpt"
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+
+    # Create a callback that saves the model's weights
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+                                                    save_weights_only=True,
+                                                    verbose=1)
+
+
     history = backbone.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
                         validation_data=(X_validation, y_validation),
-                        callbacks=[early_stop])
+                        callbacks=[cp_callback])
 
-    '''predictions = backbone.predict(X_train)'''
+    #predictions = backbone.predict(X_train)
 
 
 
@@ -263,6 +273,8 @@ if __name__ == '__main__':
     plt.matshow(m)
     plt.savefig("my_conf_mat_after.png")
 
+
+    model.load_weights(checkpoint_path)
 
     '''''''''
 
@@ -288,8 +300,8 @@ if __name__ == '__main__':
 
 
     optimizers = [
-    tf.keras.optimizers.RMSprop(learning_rate=1e-4),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-4)
+    tf.keras.optimizers.RMSprop(learning_rate=1e-4),  #-4 best
+    tf.keras.optimizers.RMSprop(learning_rate=1e-3)  #-3 best
     ]
     optimizers_and_layers = [(optimizers[0], conv_layers), (optimizers[1], other_layers)]
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
