@@ -217,21 +217,21 @@ if __name__ == '__main__':
     ]
     optimizers_and_layers = [(optimizers[0], conv_layers), (optimizers[1], other_layers)]'''
 
-    initial_learning_rate = 1e0
-    final_learning_rate = 1e-1
+    initial_learning_rate = 1e-3
+    final_learning_rate = 1e-5
     learning_rate_decay_factor = (final_learning_rate / initial_learning_rate)**(1/epochs)
     steps_per_epoch = int(X_train.shape[0]/batch_size)
     print("Steps per Epoch ", steps_per_epoch)
 
     sched = tf.keras.optimizers.schedules.CosineDecayRestarts(
             initial_learning_rate,
-            50,
+            150,
             t_mul=1.0,
             m_mul=0.9,
             alpha=final_learning_rate,
             )
     
-    optimizer =     tf.keras.optimizers.RMSprop(1e-4) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
+    optimizer =     tf.keras.optimizers.RMSprop(1e-2) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
 
 
     objective = Mutual_Information_Objective(512, num_classes= 100, conv_features=True)
@@ -262,10 +262,10 @@ if __name__ == '__main__':
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
-                        validation_data=(X_validation, y_validation),
+                        #validation_data=(X_validation, y_validation),
                         callbacks=[cp_callback])
 
-    #predictions = backbone.predict(X_train)
+    predictions = backbone.evaluate(X_validation, y_validation)
 
 
 
@@ -273,18 +273,17 @@ if __name__ == '__main__':
     plt.matshow(m)
     plt.savefig("my_conf_mat_after.png")
 
-
     model.load_weights(checkpoint_path)
 
     '''''''''
 
-    Stage 2 : Learning the weights 
+    Stage 2 : Learning the mlp weights 
 
     '''''''''
     #layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
 
     batch_size = 64
-    epochs = 63
+    epochs = 2
 
     #
     conv_layers = []
@@ -293,6 +292,59 @@ if __name__ == '__main__':
         if l.__class__.__name__ == 'RotConv2D':
             l._train_r = False
             l._train_w = True
+            l.trainable = False
+            conv_layers.append(l)
+        if  l.__class__.__name__ == 'Dense':
+            l.trainable = True
+            other_layers.append(l)
+
+    optimizer =   tf.keras.optimizers.RMSprop(learning_rate=1e-2)  #-4 best
+
+
+    model.compile(
+            optimizer=optimizer,
+            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            metrics=[
+                keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+                keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
+            ],
+    )
+
+
+    history = model.fit(X_train, 
+                        y_train, 
+                        batch_size=batch_size, 
+                        epochs=epochs, 
+                        validation_data=(X_validation, y_validation))
+    
+
+    '''log_gradients   = (True), 
+    log_weights     = (True),
+    training_data   = (X_train, y_train),
+    validation_data = (X_validation, y_validation)
+    input_type = "images",
+    output_type = "label",
+    )])'''
+
+
+    '''''''''
+
+    Stage 3 : Learning all the weights 
+
+    '''''''''
+    #layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100], 15: [1, 10, 100]})
+
+    batch_size = 64
+    epochs = 60
+
+    #
+    conv_layers = []
+    other_layers = []
+    for l in model.layers:
+        if l.__class__.__name__ == 'RotConv2D':
+            l._train_r = False
+            l._train_w = True
+            l.trainable = True
             conv_layers.append(l)
         if  l.__class__.__name__ == 'Dense':
             l.trainable = True
