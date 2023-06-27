@@ -20,15 +20,16 @@ def batchnorm_rot_cnn():
     x=RotConv2D(256,padding='SAME')(input_layer)
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-    x=RotConv2D(256,padding='SAME')(x) #3
+    x=RotConv2D(256,padding='SAME')(x) #4
+    x=BatchNormalization()(x)
     x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x)  #16x16
     x=Dropout(0.2)(x)
         
-    x=RotConv2D(512,padding='SAME')(x) #6
+    x=RotConv2D(512,padding='SAME')(x) #9
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-    x=RotConv2D(512,padding='SAME')(x) #9
+    x=RotConv2D(512,padding='SAME')(x) #12
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
     x=MaxPool2D(pool_size=(2,2))(x)  #8x8
@@ -48,24 +49,29 @@ def batchnorm_rot_cnn():
     x=Activation('relu')(x)
     x=RotConv2D(512,padding='SAME')(x)
     x=BatchNormalization()(x)
-
-
-
-
-    feature_layer= AveragePooling2D(pool_size=(4, 4), name='avg_pool_feature')(x)
-    #feature_layer = Dropout(0.2)(feature_layer)
-    #feature_layer= MaxPool1D(pool_size=4, name='maxpool1D')(feature_layer)
-    feature_layer= Activation('softmax')(feature_layer/0.75)
-    feature_layer = Dropout(0.5)(feature_layer)
-
-
     x=Activation('relu')(x)
-    x=MaxPool2D(pool_size=(2,2))(x)  #2x2x512
-    x = Dropout(0.2)(x)
+
+    output=MaxPool2D(pool_size=(2,2))(x)  #2x2x512
+
+    
 
 
 
-    x=Flatten()(x)
+    '''feature_layer= AveragePooling2D(pool_size=(2, 2), name='avg_pool_feature')(output)
+    #           feature_layer= MaxPool1D(pool_size=4, name='maxpool1D')(feature_layer)
+    feature_layer= Activation('softmax')(feature_layer/0.5)
+    #           feature_layer = Dropout(0.2)(feature_layer)'''
+    
+    
+    
+    output = Dropout(0.2)(output)
+
+
+
+
+
+
+    '''x=Flatten()(x)
     x=Dense(1024, kernel_initializer=HeNormal(seed=5))(x)   #1024
     x=Activation('relu')(x)
     x=Dropout(0.2)(x)
@@ -73,5 +79,5 @@ def batchnorm_rot_cnn():
                 epsilon=0.005,
                 beta_initializer=RandomNormal(mean=0.0, stddev=0.05), 
                 gamma_initializer=Constant(value=0.9))(x)
-    output=Dense(100,activation='softmax',  kernel_initializer=HeNormal(seed=5))(x)
-    return (input_layer, feature_layer, output)  
+    output=Dense(100,activation='softmax',  kernel_initializer=HeNormal(seed=5))(x)'''
+    return (input_layer, output)  

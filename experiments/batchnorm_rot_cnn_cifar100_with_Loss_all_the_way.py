@@ -30,7 +30,6 @@ class Mutual_Information_Objective(Loss):
         self.conv_features =  conv_features  #Is training using the output of convolution layer 
 
         self.centroid_table= tf.Variable(tf.zeros([ self.n_classes,  self.n_features]), trainable=False)
-        self.count_mat = tf.Variable(tf.zeros([ self.n_classes, self.n_features]), trainable=False)
         self.prob_mat= tf.Variable(tf.zeros([ self.n_classes, self.n_features]), trainable=False)
 
 
@@ -40,9 +39,7 @@ class Mutual_Information_Objective(Loss):
 
     def get_prob_mat(self):
         return self.prob_mat.value()
-    def get_count_mat(self):
-        return self.count_mat.value()
-    
+
     @tf.function()
     def __call__(self, y_true, y_pred, sample_weight=None):
         #tf.print(y_true)
@@ -198,8 +195,8 @@ if __name__ == '__main__':
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print(tf.__version__ )
 
-    input_layer, feat, output = cnn()
-    backbone = tf.keras.Model(input_layer, feat)
+    input_layer, output = cnn()
+    #backbone = tf.keras.Model(input_layer, feat)
 
     #print(backbone.summary())
     #model = tf.keras.Model(input_layer, output)
@@ -240,126 +237,9 @@ if __name__ == '__main__':
     }
 
     #rot_conv_callback = RotConv2DCallback(model = model, rotation_epochs=1, rotation_lr=1)
-    layout_callback = FLL(wandb=wandb, model=backbone, layer_filter_dict={4: [1, 10, 100], 9: [1, 10, 100], 12: [1, 10, 100]})
+    #layout_callback = FLL(wandb=wandb, model=backbone, layer_filter_dict={4: [1, 10, 100], 9: [1, 10, 100], 12: [1, 10, 100]})
 
 
-    '''''''''
-
-    Stage 1 : Learning the rotation parameter (backbone)
-
-    '''''''''
-
-    batch_size = 256
-    epochs = 2
-
-    conv_layers = []
-    other_layers = []
-    for l in backbone.layers:
-        if l.__class__.__name__ == 'RotConv2D':
-            l.learn_rotation()
-            conv_layers.append(l)
-        if l.__class__.__name__ == 'BatchNormalization':
-            print(l)
-            l.trainable = True
-
-
-
-    '''optimizers = [
-    tf.keras.optimizers.RMSprop(learning_rate=1e-4),
-    tf.keras.optimizers.RMSprop(learning_rate=1e-6)
-    ]
-    optimizers_and_layers = [(optimizers[0], conv_layers), (optimizers[1], other_layers)]'''
-
-
-    
-    optimizer =     tf.keras.optimizers.RMSprop(1e-2) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
-
-
-    objective = Mutual_Information_Objective(512, num_classes= 100, conv_features=True)
-
-    backbone.compile(
-            optimizer=optimizer,
-            loss = objective # keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-    )
-    import matplotlib.pyplot as plt
-    from sklearn.metrics import confusion_matrix
-    '''predictions = model.predict(X_train)
-
-    conf = confusion_matrix( tf.squeeze(y_train), tf.argmax( predictions, 1 ))
-    plt.matshow(conf)
-    plt.savefig("my_conf_mat_before.png")'''
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
-
-    checkpoint_path = "training_1/cp.ckpt"
-    checkpoint_dir = os.path.dirname(checkpoint_path)
-
-    # Create a callback that saves the model's weights
-    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-                                                    save_weights_only=True,
-                                                    verbose=1)
-
-
-    predictions = backbone.evaluate(X_train[0:600], y_train[0:600], batch_size=256)
-
-
-    m = objective.get_prob_mat()
-    plt.matshow(m)
-    plt.savefig("my_conf_mat_eval_before_train.png")
-    
-    #backbone.load_weights(checkpoint_path)
-    history = backbone.fit(X_train, 
-                        y_train, 
-                        batch_size=batch_size, 
-                        epochs=epochs, 
-                        #validation_data=(X_validation, y_validation),
-                        callbacks=[cp_callback, WandbCallback(), layout_callback])
-    m = objective.get_prob_mat()
-    plt.matshow(m)
-    plt.savefig("my_conf_mat_right_after_train.png")
-
-    #predictions = backbone.evaluate(X_validation, y_validation, batch_size=64)
-    predictions = backbone.evaluate(X_train[0:600], y_train[0:600], batch_size=256)
-
-
-    m = objective.get_prob_mat()
-    plt.matshow(m)
-    plt.savefig("my_conf_mat_eval_on_train.png")
-    
-
-
-    predictions = backbone.evaluate(X_validation[0:600], y_validation[0:600], batch_size=256)
-
-
-    m = objective.get_prob_mat()
-    plt.matshow(m)
-    plt.savefig("my_conf_mat_eval_on_val.png")
-
-    #backbone.load_weights(checkpoint_path)
-    #backbone.trainable = False
-    for l in backbone.layers:
-        if l.__class__.__name__ == 'BatchNormalization':
-            print(l)
-            l.trainable = True
-        if l.__class__.__name__ == 'Dropout':
-            print(l)
-            l.trainable = True
-    #objective = Mutual_Information_Objective(512, num_classes= 100, conv_features=True)
-
-    backbone.compile(
-            optimizer=optimizer,
-            loss = objective # keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-    )
-    
-    for l in backbone.layers:
-        if l.__class__.__name__ == 'BatchNormalization':
-            print(l, l.trainable)
-    
-
-    predictions = backbone.evaluate(X_train[0:600], y_train[0:600], batch_size=256)
-
-    m = objective.get_prob_mat()
-    plt.matshow(m)
-    plt.savefig("my_conf_mat_eval_on_train_with_batchNormTrained.png")
 
 
 
@@ -378,7 +258,7 @@ if __name__ == '__main__':
     x=Flatten()(x)
     x=Dense(1024, kernel_initializer=HeNormal(seed=5))(x)   #1024
     x=Activation('relu')(x)
-    x=Dropout(0.5)(x)
+    x=Dropout(0.2)(x)
     x=BatchNormalization(momentum=0.95, 
                 epsilon=0.005,
                 beta_initializer=RandomNormal(mean=0.0, stddev=0.05), 
@@ -392,11 +272,6 @@ if __name__ == '__main__':
         if l.__class__.__name__ == 'RotConv2D':
             l.learn_rotation()
             conv_layers.append(l)
-        if l.__class__.__name__ == 'BatchNormalization':
-            print(l)
-            l.trainable = False
-
-
 
 
     batch_size = 64
@@ -425,8 +300,8 @@ if __name__ == '__main__':
 
 
     optimizers = [
-        tf.keras.optimizers.RMSprop(1e-3),
-        tf.keras.optimizers.RMSprop(1e-2)
+        tf.keras.optimizers.Adam(1e-3),
+        tf.keras.optimizers.Adam(1e-4)
     ]
     optimizers_and_layers = [(optimizers[0], model.layers[0:2]), (optimizers[1], model.layers[2:])]
     optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
@@ -444,12 +319,12 @@ if __name__ == '__main__':
 
 
 
-    layout_callback.m = backbone
+    #layout_callback.m = backbone
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 
                         epochs=epochs, 
-                        validation_data=(X_validation, y_validation))
+                        validation_data=(X_train, y_train))
                         #callbacks=[WandbCallback()]) 
     
 
@@ -475,7 +350,7 @@ if __name__ == '__main__':
             conv_layers.append(l)
         if l.__class__.__name__ == 'BatchNormalization':
             print(l)
-            l.trainable = True
+            l.trainable = False
 
 
 
@@ -492,7 +367,7 @@ if __name__ == '__main__':
             m_mul=0.9,
             alpha=final_learning_rate,
     )
-    optimizer =     tf.keras.optimizers.RMSprop(learning_rate=sched)  #-4 best
+    optimizer =     tf.keras.optimizers.Adam(learning_rate=sched)  #-4 best
 
 
     # It's important to recompile your model after you make any changes

@@ -111,7 +111,7 @@ if __name__ == '__main__':
     #lr_callback = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose=True)
 
     
-    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 6: [1, 10, 100], 9: [1, 10, 100], 13: [1, 10, 100]})
+    layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100]})
     history = model.fit(X_train, 
                         y_train, 
                         batch_size=batch_size, 

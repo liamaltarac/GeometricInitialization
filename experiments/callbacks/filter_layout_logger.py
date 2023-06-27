@@ -15,17 +15,19 @@ class FLL(tf.keras.callbacks.Callback):
     def __init__(self, wandb, model, layer_filter_dict, file_type = "png"):
         self.wandb = wandb
         self.model = model
+        self.m = model
         self.lfd = layer_filter_dict  # {0 : [1,2,3,5], 5: [10, 20] , ...}
         self.ft = file_type
         self.epochs = int(wandb.config['epochs'])
         self.cur_epoch = 0
 
     def get_filter(self, layer):
-        layer = self.model.layers[layer]
+        #print(self.m.summary())
+        layer = self.m.layers[layer]
 
         # check for convolutional layer
         if 'conv' not in layer.name:
-            raise ValueError('Layer must be a conv. layer')
+            raise ValueError('Layer must be a conv. layer', layer.name)
         # get filter weights
         filters, biases = layer.get_weights()
         print("biases shape : ", biases.shape)
@@ -54,8 +56,10 @@ class FLL(tf.keras.callbacks.Callback):
         
         return  (sum + mat_sum_rot_90) / 8, filter - ((sum + mat_sum_rot_90) / 8)
 
+    def on_train_begin(self, logs=None):
+        self.on_epoch_end(None)
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def on_epoch_end(self, epoch, logs=None):
 
         for layer, filters in self.lfd.items():
             weights = self.get_filter(layer)
@@ -135,7 +139,7 @@ class FLL(tf.keras.callbacks.Callback):
                 im = Image.open(buf)
 
                 print('Saving Layer_{}_Filter_{}.{}'.format(str(layer), str(filter), self.ft))
-                self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image(im)})
+                self.wandb.log({'Layer {}, Filter {}'.format(str(layer), str(filter)): self.wandb.Image(im)} )
 
                 buf.close()
         self.cur_epoch+=1
