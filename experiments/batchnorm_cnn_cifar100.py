@@ -10,7 +10,7 @@ class LRLogger(tf.keras.callbacks.Callback):
       super(LRLogger, self).__init__()
       self.optimizer = optimizer
 
-    def on_epoch_end(self, epoch, logs):
+    def on_epoch_begin(self, epoch, logs):
       lr = self.optimizer.learning_rate(self.optimizer.iterations)
       wandb.log({"lr": lr}, commit=False)
 
@@ -26,7 +26,10 @@ if __name__ == '__main__':
     #from geo_init.geometric_initialization_relu import GeometricInit3x3Relu
     #from geo_init_matthew.geometric_initialization import GeometricInit3x3 as gim
     #from geo_init_matthew.geometric_initialization_with_chi_mag import GeometricInit3x3 as gim
-    from geo_init_heuristic.geometric_initialization import GeometricInit3x3 as gim
+    #from geo_init_heuristic.geometric_initialization import GeometricInit3x3 as gim
+    
+    #from geo_init_new.geometric_initialization import GeometricInit3x3 as gim
+    from geo_init_new.geometric_initialization_heuristic import GeometricInit3x3 as gim
 
     #from geo_init_liam.geometric_initialization import GeometricInit3x3 as gim
     from .callbacks.filter_layout_logger import FLL
@@ -50,21 +53,21 @@ if __name__ == '__main__':
     from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
     # Configuration for creating new images
-    train_datagen = ImageDataGenerator(
-        rotation_range=20,
-        horizontal_flip=True,
-        #featurewise_center = True
-    )
+
+    datagen = ImageDataGenerator(
+                rotation_range=20,
+                horizontal_flip=True,
+                )
 
     X_train, X_validation, y_train, y_validation = train_test_split(x_train, y_train, test_size=0.2, random_state=93)
-    train_datagen.fit(X_train)
+    datagen.fit(X_train)
 
 
     import wandb
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = '8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
+    wandb.run.name = 'Method3_p=0.5_beta=0.666' #'8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule_with_exp_lr_with_dropout=0.4_with_DA' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',
@@ -82,10 +85,29 @@ if __name__ == '__main__':
     
     #lr = 1e-4
 
-    optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.PiecewiseConstantDecay(
-                                                boundaries=[20*len(X_train)//64, 40*len(X_train)//64], 
-                                                values=[1e-3, 1e-4, 1e-5]
-                                            ))
+    
+
+    initial_learning_rate = 1e-4
+    final_learning_rate = 1e-5
+    learning_rate_decay_factor = (final_learning_rate / initial_learning_rate)**(1/20)
+    steps_per_epoch = int(X_train.shape[0]/64)
+    print("Steps per Epoch ", steps_per_epoch)
+
+
+    sched = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate,
+        decay_steps=steps_per_epoch,
+        decay_rate = learning_rate_decay_factor,
+        staircase=True)
+
+  
+    #optimizer = tf.keras.optimizers.RMSprop(sched)
+    optimizer = tf.keras.optimizers.RMSprop(tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+                                                boundaries=[20*len(X_train)//64], 
+                                                values=[1e-4, 1e-5]
+                                            )) 
+
+
     def get_lr_metric(optimizer):
         def lr(y_true, y_pred):
             return optimizer.lr
@@ -112,12 +134,10 @@ if __name__ == '__main__':
 
     
     layout_callback = FLL(wandb=wandb, model=model, layer_filter_dict={3: [1, 10, 100], 7: [1, 10, 100], 10: [1, 10, 100]})
-    history = model.fit(X_train, 
-                        y_train, 
-                        batch_size=batch_size, 
+    history = model.fit(datagen.flow(X_train, y_train, batch_size=64), 
                         epochs=epochs, 
-                        validation_data=(X_validation, y_validation),
-                        callbacks=[WandbCallback(), layout_callback, LRLogger(optimizer)]) 
+                        validation_data=datagen.flow(X_validation, y_validation, batch_size=64),
+                        callbacks=[WandbCallback(), LRLogger(optimizer), layout_callback]) 
     
     wandb.finish()
 

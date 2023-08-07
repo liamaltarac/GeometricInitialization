@@ -21,7 +21,7 @@ from tensorflow.keras.losses import Loss
 import os
 
 class Mutual_Information_Objective(Loss):
-    def __init__(self, num_features, num_classes=10, conv_features=True):
+    def __init__(self, num_features, num_classes=10, conv_features=True, reset_on_batch = None):
 
         super(Mutual_Information_Objective, self).__init__()
         self.n_features = num_features
@@ -35,6 +35,10 @@ class Mutual_Information_Objective(Loss):
 
 
         self.num_features =  0
+
+        self.reset_on_batch = reset_on_batch
+        self.reset_count = tf.Variable(0., trainable=False)
+
         tf.print("Starting")
 
 
@@ -53,7 +57,7 @@ class Mutual_Information_Objective(Loss):
 
 
         #for label in tf.range(self.n_classes):
-        def body(i, label, centroids):
+        def body(i, label, counts, probs):
             #Find all latent codes in batch belonging a specific class
             idx = tf.where(y_true == [label])[:,0]
             #tf.print(label)
@@ -63,11 +67,12 @@ class Mutual_Information_Objective(Loss):
                 gathered_vectors = tf.gather(y_pred,  idx)
 
                 #tf.io.write_file("Math_Experiments/dot.csv", tf.strings.as_string(prob_mat))
-                centroid = tf.reduce_mean(gathered_vectors, axis=0)
+                cur_count = tf.reduce_sum(gathered_vectors, axis=0) + counts.read(label)
+
                 #tf.io.write_file("Math_Experiments/dot.csv", tf.strings.as_string(centroid))
                 if self.conv_features:
                     #centroid = tf.keras.layers.GlobalAveragePooling2D()(tf.expand_dims(centroid, axis=0))
-                    centroid = tf.reshape(centroid, [self.n_features])
+                    cur_count = tf.reshape(cur_count, [self.n_features])
                     #tf.io.write_file("Math_Experiments/dot.csv", tf.strings.as_string(centroid))
 
                     #centroid = K.clip(centroid, -1, 1, )
@@ -81,35 +86,49 @@ class Mutual_Information_Objective(Loss):
                 #if self.prob is False:
                 #    centroid = tf.nn.softmax(centroid)
                 
+                counts = counts.write(label, cur_count)
 
-                centroid_sum = tf.math.reduce_sum(centroid) + K.epsilon()
+                cur_count_sum = tf.math.reduce_sum(cur_count) + K.epsilon()
                 #centroid_sum = K.clip(centroid_sum , K.epsilon(), centroid_sum )
 
-                centroid = centroid / centroid_sum # ensure that sum=1
+                prob = cur_count / cur_count_sum # ensure that sum=1
 
                 #if prob is False:
                 #    centroid = tf.nn.softmax(centroid)
-                centroids = centroids.write(label, centroid)
+                probs = probs.write(label, prob)
             
             label += 1
-            return i, label, centroids
+            return i, label, counts, probs
 
 
-
-        centroids = tf.TensorArray(dtype=tf.float32, infer_shape=False, size=0, 
-                                        dynamic_size=True, name="centroids",  clear_after_read=False) 
+        if self.reset_on_batch is not None:
+            if self.reset_count >= self.reset_on_batch:
+                tf.print("Reseting")
+                self.count_mat.assign(tf.zeros([ self.n_classes, self.n_features]))
+                self.prob_mat.assign(tf.zeros([ self.n_classes, self.n_features]))
+                self.reset_count.assign(0.0)
         
+        probs = tf.TensorArray(dtype=tf.float32, infer_shape=False, size=0, 
+                                        dynamic_size=True, name="probs",  clear_after_read=False) 
+        
+        counts = tf.TensorArray(dtype=tf.float32, infer_shape=False, size=0, 
+                                        dynamic_size=True, name="counts",  clear_after_read=False) 
 
-        centroids = centroids.unstack(self.centroid_table)
-        i, _, centroids = tf.while_loop(lambda i, label, *_: tf.less(label, self.n_classes), body,[0,0, centroids] )
+        probs = probs.unstack(self.prob_mat)
+        counts = counts.unstack(self.count_mat)
 
-        centroid_table =  centroids.stack()
+        i, _, counts, probs = tf.while_loop(lambda i, label, *_: tf.less(label, self.n_classes), body,[0,0, counts, probs] )
+
+        counts_table =  counts.stack()
+        probs_table =  probs.stack()
+
         if tf.keras.backend.learning_phase():
             tf.print("Learn")
-        self.centroid_table.assign(centroid_table)
-        prob_mat =(centroid_table/ self.n_classes ) + K.epsilon()
-        #prob_mat = K.clip(centroid_table+ / self.n_classes , K.epsilon(), 1, ) #Ensure that marginals sum to 1 and that the zeros are not actually 0 (prevents nan)
-        #prob_mat = self.centroid_table / self.n_classes 
+
+
+        #Normalize the probability table
+        prob_mat =(probs_table / self.n_classes ) + K.epsilon()
+
         prob_mat = tf.reshape(prob_mat, [self.n_classes, self.n_features])
 
         px = tf.expand_dims(tf.math.reduce_sum(prob_mat, axis=1), axis=0)
@@ -117,20 +136,15 @@ class Mutual_Information_Objective(Loss):
         py = tf.expand_dims(tf.math.reduce_sum(prob_mat, axis=0), axis=0)
         py = tf.reshape(py, [1,  self.n_features])
 
-        #tf.print(py)
         px_py = tf.linalg.matmul(px , py, transpose_a=True)  #Px * Py
 
         MI = tf.math.reduce_sum(tf.math.multiply(prob_mat, tf.math.log(tf.math.divide(prob_mat, px_py)))) #axis=0)
-        #tf.io.write_file("dot.csv", tf.strings.as_string(MI))
 
-        #centroids.close()
-        #if tf.keras.backend.learning_phase():
+
         self.prob_mat.assign(prob_mat)
+        self.count_mat.assign(counts_table)
 
-        #self.centroids.close()
-        #tf.print(angle)
-
-        #tf.print(norms)
+        self.reset_count.assign_add(1.0)
 
         return(-MI)
     
@@ -226,7 +240,7 @@ if __name__ == '__main__':
     train_datagen.fit(X_train)
 
 
-    import wandb
+    '''import wandb
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
@@ -237,10 +251,10 @@ if __name__ == '__main__':
     'epochs' : '10',
     "initialization": 'geo heuristic init l',
     "model": '8_layer_BatchNorm_Heuristic_Liam'
-    }
+    }'''
 
     #rot_conv_callback = RotConv2DCallback(model = model, rotation_epochs=1, rotation_lr=1)
-    layout_callback = FLL(wandb=wandb, model=backbone, layer_filter_dict={4: [1, 10, 100], 9: [1, 10, 100], 12: [1, 10, 100]})
+    #layout_callback = FLL(wandb=wandb, model=backbone, layer_filter_dict={4: [1, 10, 100], 9: [1, 10, 100], 12: [1, 10, 100]})
 
 
     '''''''''
@@ -249,7 +263,7 @@ if __name__ == '__main__':
 
     '''''''''
 
-    batch_size = 256
+    batch_size = 64
     epochs = 2
 
     conv_layers = []
@@ -272,10 +286,10 @@ if __name__ == '__main__':
 
 
     
-    optimizer =     tf.keras.optimizers.RMSprop(1e-2) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
+    optimizer =     tf.keras.optimizers.RMSprop(1e-1) #tfa.optimizers.MultiOptimizer(optimizers_and_layers)
 
 
-    objective = Mutual_Information_Objective(512, num_classes= 100, conv_features=True)
+    objective = Mutual_Information_Objective(512, num_classes= 100, conv_features=True, reset_on_batch=5)
 
     backbone.compile(
             optimizer=optimizer,
@@ -309,10 +323,10 @@ if __name__ == '__main__':
     #backbone.load_weights(checkpoint_path)
     history = backbone.fit(X_train, 
                         y_train, 
-                        batch_size=batch_size, 
+                        batch_size=batch_size*625, 
                         epochs=epochs, 
                         #validation_data=(X_validation, y_validation),
-                        callbacks=[cp_callback, WandbCallback(), layout_callback])
+                        callbacks=[cp_callback])#, WandbCallback(), layout_callback])
     m = objective.get_prob_mat()
     plt.matshow(m)
     plt.savefig("my_conf_mat_right_after_train.png")
@@ -378,7 +392,7 @@ if __name__ == '__main__':
     x=Flatten()(x)
     x=Dense(1024, kernel_initializer=HeNormal(seed=5))(x)   #1024
     x=Activation('relu')(x)
-    x=Dropout(0.5)(x)
+    x=Dropout(0.2)(x)
     x=BatchNormalization(momentum=0.95, 
                 epsilon=0.005,
                 beta_initializer=RandomNormal(mean=0.0, stddev=0.05), 
@@ -425,7 +439,7 @@ if __name__ == '__main__':
 
 
     optimizers = [
-        tf.keras.optimizers.RMSprop(1e-3),
+        tf.keras.optimizers.RMSprop(1e-6),
         tf.keras.optimizers.RMSprop(1e-2)
     ]
     optimizers_and_layers = [(optimizers[0], model.layers[0:2]), (optimizers[1], model.layers[2:])]
@@ -475,11 +489,11 @@ if __name__ == '__main__':
             conv_layers.append(l)
         if l.__class__.__name__ == 'BatchNormalization':
             print(l)
-            l.trainable = True
+            l.trainable = False
 
 
 
-    initial_learning_rate = 1e-4
+    initial_learning_rate = 1e-3
     final_learning_rate = 1e-6
     learning_rate_decay_factor = (final_learning_rate / initial_learning_rate)**(1/epochs)
     steps_per_epoch = int(X_train.shape[0]/batch_size)
@@ -489,7 +503,7 @@ if __name__ == '__main__':
             initial_learning_rate,
             steps_per_epoch*2,
             t_mul=1.5,
-            m_mul=0.9,
+            m_mul=0.75,
             alpha=final_learning_rate,
     )
     optimizer =     tf.keras.optimizers.RMSprop(learning_rate=sched)  #-4 best

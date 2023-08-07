@@ -17,6 +17,7 @@ from .layers.rot_conv2d import RotConv2D
 def batchnorm_rot_cnn():
 
     input_layer=Input(shape=(32,32,3))
+    
     x=RotConv2D(256,padding='SAME')(input_layer)
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
@@ -50,34 +51,25 @@ def batchnorm_rot_cnn():
     x=RotConv2D(512,padding='SAME')(x)
     x=BatchNormalization()(x)
     x=Activation('relu')(x)
-
-    output=MaxPool2D(pool_size=(2,2))(x)  #2x2x512
-
-    
+    x=MaxPool2D(pool_size=(2,2))(x)  #2x2x512
 
 
+    #x = Dropout(0.2)(x)
 
-    '''feature_layer= AveragePooling2D(pool_size=(2, 2), name='avg_pool_feature')(output)
-    #           feature_layer= MaxPool1D(pool_size=4, name='maxpool1D')(feature_layer)
-    feature_layer= Activation('softmax')(feature_layer/0.5)
-    #           feature_layer = Dropout(0.2)(feature_layer)'''
-    
-    
-    
-    output = Dropout(0.2)(output)
+    feature_layer = Flatten()(x)
+    feature_layer = Dense(100, activation=None, trainable = False)(feature_layer)   #1024
+    feature_layer = Activation('sigmoid')(feature_layer)
 
 
 
-
-
-
-    '''x=Flatten()(x)
-    x=Dense(1024, kernel_initializer=HeNormal(seed=5))(x)   #1024
+    x = Dropout(0.2)(x)
+    x=Flatten()(x)
+    x=Dense(1024, kernel_initializer=HeNormal(seed=None))(x)   #1024
     x=Activation('relu')(x)
     x=Dropout(0.2)(x)
     x=BatchNormalization(momentum=0.95, 
                 epsilon=0.005,
                 beta_initializer=RandomNormal(mean=0.0, stddev=0.05), 
                 gamma_initializer=Constant(value=0.9))(x)
-    output=Dense(100,activation='softmax',  kernel_initializer=HeNormal(seed=5))(x)'''
-    return (input_layer, output)  
+    output=Dense(100,activation='softmax',  kernel_initializer=HeNormal(seed=None))(x)
+    return (input_layer, feature_layer, output)  
