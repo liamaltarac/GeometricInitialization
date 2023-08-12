@@ -67,7 +67,7 @@ if __name__ == '__main__':
     from wandb.keras import WandbCallback
 
     run = wandb.init(project="new_approach", entity="geometric_init")
-    wandb.run.name = 'Method3_p=0.5_beta=0.666' #'8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule_with_exp_lr_with_dropout=0.4_with_DA' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
+    wandb.run.name = 'Method3_p=0.5_beta=0.0' #'8_layer_cnn_cifar100_HEURISTIC_batchnorm_CustomSchedule_with_exp_lr_with_dropout=0.4_with_DA' #'8_layer_cnn_cifar100_Heuristic_p=0.7_batchnorm_ReduceLRonPlateau_Vrf2=Glorot'
     wandb.config = {
     "learning_rate": '[1e-6, 1e-4]',
     'batch_size' : '64',

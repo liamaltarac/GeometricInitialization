@@ -10,7 +10,7 @@ import math as m
 
 class GeometricInit3x3(Initializer):
 
-    def __init__(self, seed = None, rho=0.5, beta=2/3,):
+    def __init__(self, seed = None, rho=0.5, beta=0.1,):
         self.seed = seed
         self.channels = None
         self.filters = None
