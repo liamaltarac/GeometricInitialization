@@ -11,6 +11,7 @@ from keras.layers.core import Dense,Activation,Dropout,Flatten, SpatialDropout2D
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.initializers import RandomNormal, Constant, HeNormal
 from tensorflow.keras import regularizers
+from geo_init_new.geometric_initialization_heuristic import GeometricInit3x3 
 
 import sys
 sys.path.append("..")    
@@ -19,37 +20,37 @@ def batchnorm_cnn(k_init = 'he_normal'):
 
     model = Sequential()
     
-    model.add(Conv2D(256,(3,3),padding='same',input_shape=(32,32,3), kernel_initializer = k_init ) )
+    model.add(Conv2D(256,(3,3),padding='same',input_shape=(32,32,3), kernel_initializer = GeometricInit3x3(rho=0.7, beta=0.8) ) )
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(256,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(Conv2D(256,(3,3),padding='same',  kernel_initializer = GeometricInit3x3(rho=0.7, beta=0.8) ))
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
     model.add(Dropout(0.2))
 
     
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = GeometricInit3x3(rho=0.6, beta=0.75) ))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(MaxPool2D(pool_size=(2,2)))
-    model.add(Dropout(0.2))
-
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = GeometricInit3x3(rho=0.6, beta=0.75) ))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))
     model.add(Dropout(0.2))
 
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = GeometricInit3x3(rho=0.5, beta=0.7) ))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = k_init))
+    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = GeometricInit3x3(rho=0.5, beta=0.7) ))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPool2D(pool_size=(2,2)))
+    model.add(Dropout(0.2))
+
+    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = GeometricInit3x3(rho=0.4, beta=2/3) ))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Conv2D(512,(3,3),padding='same', kernel_initializer = GeometricInit3x3(rho=0.4, beta=2/3) ))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPool2D(pool_size=(2,2)))

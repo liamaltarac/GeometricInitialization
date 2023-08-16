@@ -77,7 +77,7 @@ class GeometricInit3x3(Initializer):
         self.var_rs = (self.var_rs2/6.0)**0.5 * (3-8/m.pi)
         #self.var_s = tf.math.sqrt(self.var_rs2/66)
 
-        print("VAL", self.var_ra2, self.var_rs2)
+        print("Beta", self.var_ra2/(self.var_rs2+self.var_ra2))
         return 6*var_x + (3 + 8/m.pi)*self.var_rs - (2/self.channels)
 
 
