@@ -10,7 +10,7 @@ import math as m
 
 class GeometricInit3x3(Initializer):
 
-    def __init__(self, seed = None, rho=0.5, beta=0.1,):
+    def __init__(self, seed = None, rho=0.99, beta=0.66):
         self.seed = seed
         self.channels = None
         self.filters = None
@@ -78,6 +78,8 @@ class GeometricInit3x3(Initializer):
         #self.var_s = tf.math.sqrt(self.var_rs2/66)
 
         print("Beta", self.var_ra2/(self.var_rs2+self.var_ra2))
+        print("var_x", var_x)
+
         return 6*var_x + (3 + 8/m.pi)*self.var_rs - (2/self.channels)
 
 
@@ -103,7 +105,7 @@ class GeometricInit3x3(Initializer):
 
         # Color the  Anti-symetric distribution according to a covariance matrix
         var_x = tfp.math.find_root_chandrupatla(objective_fn=self._objective, low = [0], high=[2/(6*n)])[0]
-
+        print("VAR_X = ", var_x)
         cov = tf.stack([var_x,          self.rho*var_x,      
                         self.rho*var_x,          var_x ])
         cov = tf.cast(tf.reshape(cov, (1, 2,2)), tf.dtypes.float32)
@@ -125,10 +127,19 @@ class GeometricInit3x3(Initializer):
 
     
         theta += antisym_rotation
-        a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*math.pi/4)
+        
+        #Simpified Anti-Sym Gabor
+
+        a = -tf.math.sin(tf.math.cos(theta)- tf.math.sin(theta))
+        b = tf.math.sin(tf.math.sin(theta))
+        c = tf.math.sin(tf.math.cos(theta) + tf.math.sin(theta))
+        d = -tf.math.sin(tf.math.cos(theta))
+
+
+        '''a = -tf.math.sqrt(8.0)*tf.math.cos(theta - 9*math.pi/4)
         b = -2*tf.math.sin(theta)
         c = -tf.math.sqrt(8.0)*tf.math.sin(theta - 9*math.pi/4)
-        d = -2*tf.math.cos(theta)
+        d = -2*tf.math.cos(theta)'''
         
         asym_filters = tf.stack([tf.concat( [a,b,c], axis=0) , 
                         tf.concat( [d,tf.zeros([1, self.channels, self.filters]), -d], axis=0),
@@ -209,7 +220,7 @@ def getSymAntiSym(filter):
 if __name__ == "__main__":
 
     gi = GeometricInit3x3(seed=7)
-    filters = gi.__call__([3,3,256,200])
+    filters = gi.__call__([3,3,128,128])
     FILTER = [1] #list(range(t.shape[-1]))
     CHANNEL =  list(range(filters.shape[-2]))
     thetas = []
@@ -251,7 +262,7 @@ if __name__ == "__main__":
     r = np.sqrt(np.sum(np.cos(t_rad))**2 + np.sum(np.sin(t_rad))**2 )
     print(1 - r/n)
 
-    plt.hist(mags, bins=32)
+    plt.hist(anti_mags, bins=32)
     plt.xticks(np.arange(np.min(mags), np.max(mags), step=45), size='small', rotation=0)    
     plt.xlabel('magnitude ')
     plt.ylabel('Count')
@@ -261,7 +272,9 @@ if __name__ == "__main__":
     print('v_ra2: ',np.var(np.array(anti_mags)**2))
     print('v_rs2: ',np.var(np.array(sym_mags)**2))
     print('v_rs: ',np.var(np.array(sym_mags)))
+    print('cov_ra_rs: ',np.cov(np.array(sym_mags)**2, np.array(anti_mags)**2))
 
-    print('E2_rs: ',np.mean(np.array(sym_mags))**2)
+    print('E2_rs: ',np.mean(np.array(sym_mags)))
+    print('E2_ra: ',np.mean(np.array(anti_mags)))
 
-    print('var_init: ',np.var(np.ravel(f_vals)))
+    print('var_init: ',np.var(f_vals))
